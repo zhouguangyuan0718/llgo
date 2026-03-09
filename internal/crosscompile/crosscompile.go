@@ -198,7 +198,7 @@ func compileWithConfig(
 	return
 }
 
-func use(goos, goarch string, wasiThreads, forceEspClang bool, level optlevel.Level) (export Export, err error) {
+func use(goos, goarch string, wasiThreads, forceEspClang bool, level optlevel.Level, enableLTO bool) (export Export, err error) {
 	targetTriple := llvm.GetTargetTriple(goos, goarch)
 	llgoRoot := env.LLGoROOT()
 
@@ -226,8 +226,11 @@ func use(goos, goarch string, wasiThreads, forceEspClang bool, level optlevel.Le
 			"-Wl,--error-limit=0",
 			"-fuse-ld=lld",
 			// Enable ICF (Identical Code Folding) to reduce binary size
-			"-Xlinker",
-			"--icf=safe",
+			"-Wl,--icf=safe",
+		}
+		if enableLTO {
+			// Enable ThinLTO, using default lto kind(thinlto).
+			export.LDFLAGS = append(export.LDFLAGS, "-Wl,--lto-O0")
 		}
 		if clangRoot != "" {
 			clangLib := filepath.Join(clangRoot, "lib")
@@ -251,6 +254,9 @@ func use(goos, goarch string, wasiThreads, forceEspClang bool, level optlevel.Le
 			level.Flag(),
 			"-Qunused-arguments",
 			"-Wno-unused-command-line-argument",
+		}
+		if enableLTO {
+			export.CCFLAGS = append(export.CCFLAGS, "-flto=thin")
 		}
 
 		// Add sysroot for macOS only
@@ -428,7 +434,7 @@ func use(goos, goarch string, wasiThreads, forceEspClang bool, level optlevel.Le
 }
 
 // UseTarget loads configuration from a target name (e.g., "rp2040", "wasi")
-func UseTarget(targetName string, level optlevel.Level) (export Export, err error) {
+func UseTarget(targetName string, level optlevel.Level, enableLTO bool) (export Export, err error) {
 	resolver := targets.NewDefaultResolver()
 
 	config, err := resolver.Resolve(targetName)
@@ -503,6 +509,13 @@ func UseTarget(targetName string, level optlevel.Level) (export Export, err erro
 	expandedCFlags := env.ExpandEnvSlice(config.CFlags, envs)
 	cflags = append(cflags, expandedCFlags...)
 
+	if config.Linker == "ld.lld" && enableLTO {
+		// Enable ThinLTO, Using default lto kind(thinlto).
+		ldflags = append(ldflags, "--lto-O0")
+		cflags = append(cflags, "-flto=thin")
+		ccflags = append(ccflags, "-flto=thin")
+	}
+
 	// The following parameters are inspired by tinygo/builder/library.go
 	// Handle CPU configuration
 	if cpu != "" {
@@ -549,6 +562,8 @@ func UseTarget(targetName string, level optlevel.Level) (export Export, err erro
 		ccflags = append(ccflags, "-fforce-enable-int128")
 	case "riscv64":
 		ccflags = append(ccflags, "-march=rv64gc")
+		// codegen option should be added to ldflags for lto
+		ldflags = append(ldflags, "-mllvm", "-march=rv64gc")
 	case "mips":
 		ccflags = append(ccflags, "-fno-pic")
 	}
@@ -578,9 +593,17 @@ func UseTarget(targetName string, level optlevel.Level) (export Export, err erro
 	// Handle code generation configuration
 	if config.CodeModel != "" {
 		ccflags = append(ccflags, "-mcmodel="+config.CodeModel)
+		if enableLTO {
+			// codegen option should be added to ldflags for lto
+			ldflags = append(ldflags, "-mllvm", "-code-model="+config.CodeModel)
+		}
 	}
 	if config.TargetABI != "" {
 		ccflags = append(ccflags, "-mabi="+config.TargetABI)
+		if enableLTO {
+			// codegen option should be added to ldflags for lto
+			ldflags = append(ldflags, "-mllvm", "-target-abi="+config.TargetABI)
+		}
 	}
 	if config.RelocationModel != "" {
 		switch config.RelocationModel {
@@ -662,9 +685,9 @@ func UseTarget(targetName string, level optlevel.Level) (export Export, err erro
 
 // Use extends the original Use function to support target-based configuration
 // If targetName is provided, it takes precedence over goos/goarch
-func Use(goos, goarch, targetName string, wasiThreads, forceEspClang bool, level optlevel.Level) (export Export, err error) {
+func Use(goos, goarch, targetName string, wasiThreads, forceEspClang bool, level optlevel.Level, enableLTO bool) (export Export, err error) {
 	if targetName != "" && !strings.HasPrefix(targetName, "wasm") && !strings.HasPrefix(targetName, "wasi") {
-		return UseTarget(targetName, level)
+		return UseTarget(targetName, level, enableLTO)
 	}
-	return use(goos, goarch, wasiThreads, forceEspClang, level)
+	return use(goos, goarch, wasiThreads, forceEspClang, level, enableLTO)
 }

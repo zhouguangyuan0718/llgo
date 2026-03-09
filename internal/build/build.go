@@ -126,6 +126,7 @@ type Config struct {
 	Goarch        string
 	Target        string // target name (e.g., "rp2040", "wasi") - takes precedence over Goos/Goarch
 	OptLevel      optlevel.Level
+	LTO           *bool  // nil means auto: on for target builds, off for non-target builds
 	BinPath       string
 	AppExt        string  // ".exe" on Windows, empty on Unix
 	OutFile       string  // only valid for ModeBuild when len(pkgs) == 1
@@ -203,6 +204,13 @@ func envGOPATH() (string, error) {
 	return filepath.Join(home, "go"), nil
 }
 
+func (c *Config) ltoEnabled() bool {
+	if c.LTO != nil {
+		return *c.LTO
+	}
+	return c.Target != ""
+}
+
 // -----------------------------------------------------------------------------
 
 const (
@@ -237,7 +245,7 @@ func Do(args []string, conf *Config) ([]Package, error) {
 	conf.OptLevel = effectiveOptLevel(conf)
 	// Handle crosscompile configuration first to set correct GOOS/GOARCH
 	forceEspClang := conf.ForceEspClang || conf.Target != ""
-	export, err := crosscompile.Use(conf.Goos, conf.Goarch, conf.Target, IsWasiThreadsEnabled(), forceEspClang, conf.OptLevel)
+	export, err := crosscompile.Use(conf.Goos, conf.Goarch, conf.Target, IsWasiThreadsEnabled(), forceEspClang, conf.OptLevel, conf.ltoEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup crosscompile: %w", err)
 	}

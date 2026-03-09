@@ -7,6 +7,7 @@ import (
 	"os"
 	"runtime"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/goplus/llgo/internal/optlevel"
@@ -78,7 +79,7 @@ func TestUseCrossCompileSDK(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			export, err := use(tc.goos, tc.goarch, false, false, optlevel.O2)
+			export, err := use(tc.goos, tc.goarch, false, false, optlevel.O2, true)
 
 			if err != nil {
 				t.Fatalf("Unexpected error: %v", err)
@@ -233,7 +234,7 @@ func TestUseTarget(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			export, err := UseTarget(tc.targetName, optlevel.Oz)
+			export, err := UseTarget(tc.targetName, optlevel.Oz, true)
 
 			if tc.expectError {
 				if err == nil {
@@ -313,7 +314,7 @@ func TestUseTarget(t *testing.T) {
 
 func TestUseWithTarget(t *testing.T) {
 	// Test target-based configuration takes precedence
-	export, err := Use("linux", "amd64", "esp32", false, true, optlevel.Oz)
+	export, err := Use("linux", "amd64", "esp32", false, true, optlevel.Oz, true)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -325,7 +326,7 @@ func TestUseWithTarget(t *testing.T) {
 	}
 
 	// Test fallback to goos/goarch when no target specified
-	export, err = Use(runtime.GOOS, runtime.GOARCH, "", false, false, optlevel.O2)
+	export, err = Use(runtime.GOOS, runtime.GOARCH, "", false, false, optlevel.O2, true)
 	if err != nil {
 		t.Fatalf("Unexpected error: %v", err)
 	}
@@ -337,7 +338,7 @@ func TestUseWithTarget(t *testing.T) {
 }
 
 func TestOptimizationFlagPlacement(t *testing.T) {
-	export, err := UseTarget("rp2040", optlevel.Oz)
+	export, err := UseTarget("rp2040", optlevel.Oz, false)
 	if err != nil {
 		t.Fatalf("UseTargetWithOptLevel(rp2040) failed: %v", err)
 	}
@@ -345,11 +346,69 @@ func TestOptimizationFlagPlacement(t *testing.T) {
 		t.Fatalf("target CCFLAGS = %v, want first flag -Oz", export.CCFLAGS)
 	}
 
-	export, err = Use(runtime.GOOS, runtime.GOARCH, "", false, false, optlevel.O3)
+	export, err = Use(runtime.GOOS, runtime.GOARCH, "", false, false, optlevel.O3, false)
 	if err != nil {
 		t.Fatalf("UseWithOptLevel(host, O3) failed: %v", err)
 	}
 	if !slices.Contains(export.CCFLAGS, "-O3") {
 		t.Fatalf("host CCFLAGS = %v, want -O3", export.CCFLAGS)
+	}
+}
+
+func TestUseLTOFlagsControlledByOption(t *testing.T) {
+	export, err := use(runtime.GOOS, runtime.GOARCH, false, false, optlevel.O2, false)
+	if err != nil {
+		t.Fatalf("Unexpected error: %v", err)
+	}
+	for _, flag := range export.CCFLAGS {
+		if strings.HasPrefix(flag, "-flto") {
+			t.Fatalf("unexpected LTO ccflag when disabled: %q", flag)
+		}
+	}
+	for _, flag := range export.LDFLAGS {
+		if strings.Contains(flag, "lto-") {
+			t.Fatalf("unexpected LTO ldflag when disabled: %q", flag)
+		}
+	}
+}
+
+func hasMllvmOption(flags []string, opt string) bool {
+	for i := 0; i+1 < len(flags); i++ {
+		if flags[i] == "-mllvm" && flags[i+1] == opt {
+			return true
+		}
+	}
+	return false
+}
+
+func TestUseTargetCodegenFlagsOnlyAddedToLDFlagsWithLTO(t *testing.T) {
+	const target = "k210"
+
+	noLTO, err := UseTarget(target, optlevel.Oz, false)
+	if err != nil {
+		t.Fatalf("UseTarget(%q, false) error: %v", target, err)
+	}
+	if hasMllvmOption(noLTO.LDFLAGS, "-code-model=medium") {
+		t.Fatalf("unexpected -mllvm -code-model=medium in LDFLAGS when LTO disabled: %v", noLTO.LDFLAGS)
+	}
+	if hasMllvmOption(noLTO.LDFLAGS, "-target-abi=lp64") {
+		t.Fatalf("unexpected -mllvm -target-abi=lp64 in LDFLAGS when LTO disabled: %v", noLTO.LDFLAGS)
+	}
+	if !slices.Contains(noLTO.CCFLAGS, "-mcmodel=medium") {
+		t.Fatalf("missing -mcmodel=medium in CCFLAGS: %v", noLTO.CCFLAGS)
+	}
+	if !slices.Contains(noLTO.CCFLAGS, "-mabi=lp64") {
+		t.Fatalf("missing -mabi=lp64 in CCFLAGS: %v", noLTO.CCFLAGS)
+	}
+
+	withLTO, err := UseTarget(target, optlevel.Oz, true)
+	if err != nil {
+		t.Fatalf("UseTarget(%q, true) error: %v", target, err)
+	}
+	if !hasMllvmOption(withLTO.LDFLAGS, "-code-model=medium") {
+		t.Fatalf("missing -mllvm -code-model=medium in LDFLAGS when LTO enabled: %v", withLTO.LDFLAGS)
+	}
+	if !hasMllvmOption(withLTO.LDFLAGS, "-target-abi=lp64") {
+		t.Fatalf("missing -mllvm -target-abi=lp64 in LDFLAGS when LTO enabled: %v", withLTO.LDFLAGS)
 	}
 }
