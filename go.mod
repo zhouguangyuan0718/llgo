@@ -28,4 +28,3 @@ require (
 )
 
 replace github.com/goplus/llgo/runtime => ./runtime
-replace github.com/goplus/llvm => ../go-llvm

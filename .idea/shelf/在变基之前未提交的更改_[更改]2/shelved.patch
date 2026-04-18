@@ -1,0 +1,1233 @@
+Index: dev/README.md
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+># Dev tooling\n\nThis directory contains scripts for running LLGo locally and inside reusable Linux dev containers.\n\n## Prerequisites\n\n- Docker installed and running\n- Docker Compose v2 (`docker compose`, not `docker-compose`)\n\n## 1) Start a Linux container, then run `dev/llgo.sh` / `dev/llgo_wasm.sh`\n\nStart an interactive shell (pick one):\n\n```bash\n./dev/docker.sh amd64\n./dev/docker.sh arm64\n./dev/docker.sh i386\n```\n\nNotes:\n- `amd64` uses the `pydeps` image target (includes extra Python demo deps like `numpy`/`torch`).\n- `arm64` and `i386` use the smaller `base` target (no extra Python ML deps).\n\nInside the container, run tests/builds using the repo scripts:\n\n```bash\n./dev/llgo.sh test ./...\n./dev/llgo.sh test ./test\n\n# WASI/WASM (wasip1/wasm)\n./dev/llgo_wasm.sh build ./...\n```\n\nNotes:\n- `dev/docker.sh` starts in the same repo subdirectory you launched it from.\n- `dev/llgo.sh` and `dev/llgo_wasm.sh` must be run from within `LLGO_ROOT` (the repo) and will error otherwise.\n\n## 2) Start a Linux container, run one command, then exit\n\n```bash\n./dev/docker.sh amd64 bash -lc './dev/llgo.sh test ./test'\n```\n\n## 3) Run on the host (no container)\n\nFrom anywhere inside the repo:\n\n```bash\n./dev/llgo.sh test ./test\n./dev/llgo_wasm.sh build ./...\n```\n\n## 4) Run local CI (covers most checks)\n\n```bash\n./dev/local_ci.sh\n```\n\nThis script creates a temporary workspace, runs formatting/build/tests, runs `llgo test`, and then runs demo checks.\nYou can control demo parallelism via `LLGO_DEMO_JOBS` (defaults to up to 4 jobs).\n\n## 5) `dev/docker.sh` (composition-friendly)\n\n`dev/docker.sh` is a thin wrapper around `docker compose`:\n\n```bash\n./dev/docker.sh <arch> [command...]\n```\n\n- `<arch>` must be `amd64`, `arm64`, or `i386`.\n- If `[command...]` is omitted, it starts an interactive `bash`.\n- If `[command...]` is provided, it runs that command and exits.\n- You must run it from within the repo (within `LLGO_ROOT`), and it will start in the matching repo subdirectory inside the container.\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/dev/README.md b/dev/README.md
+--- a/dev/README.md	(revision acd85672ddb3524f08c0f4a670ba52adaa9605c7)
++++ b/dev/README.md	(date 1776436471960)
+@@ -71,3 +71,66 @@
+ - If `[command...]` is omitted, it starts an interactive `bash`.
+ - If `[command...]` is provided, it runs that command and exits.
+ - You must run it from within the repo (within `LLGO_ROOT`), and it will start in the matching repo subdirectory inside the container.
++
++## 6) Refresh test goldens
++
++LLGo currently has two different golden-test refresh flows:
++
++- `gentests` for directory-based golden files such as `out.ll` and `expect.txt`
++- `litgen` for source-embedded `// LITTEST` FileCheck directives
++
++### `gentests`
++
++Run:
++
++```bash
++go run ./chore/gentests
++```
++
++Behavior:
++
++- Refreshes `out.ll` for the built-in test suites under `cl/_testlibc`, `cl/_testlibgo`, `cl/_testrt`, `cl/_testgo`, `cl/_testpy`, and `cl/_testdata`.
++- Refreshes `expect.txt` for the same directories using the existing runtime execution flow.
++- Preserves the existing skip convention where `out.ll` or `expect.txt` containing only `;` means "do not refresh".
++- New behavior: if a test case directory contains a non-test Go source file whose first line is exactly `// LITTEST`, `gentests` skips `llgen` for that directory and does not regenerate `out.ll` there.
++
++Use `gentests` when the test still stores LLVM IR in `out.ll`.
++
++### `litgen`
++
++Run on a single marked file:
++
++```bash
++go run ./chore/litgen path/to/in.go
++```
++
++Run on a directory tree:
++
++```bash
++go run ./chore/litgen cl/_testrt/litdemo
++go run ./chore/litgen cl/_testdata
++```
++
++Behavior:
++
++- Accepts one or more paths.
++- If the path is a `.go` file, it refreshes only that file. The file must start with `// LITTEST`.
++- If the path is a directory, it walks that directory recursively, finds marked source files, and refreshes each marked test in place.
++- Rewrites embedded `CHECK-LABEL`, `CHECK-NEXT`, `CHECK-EMPTY`, and referenced constant `CHECK-LINE` directives from the current generated IR.
++- Does not update `expect.txt` and does not write `out.ll`.
++
++Use `litgen` when the test case stores its IR expectations directly in the Go source instead of `out.ll`.
++
++### Marker convention
++
++Source-embedded IR checks are enabled by putting this marker on the first line of the source file:
++
++```go
++// LITTEST
++```
++
++The generated directives are consumed by the existing `littest`/FileCheck path in the compiler tests.
++
++Example:
++
++- [cl/_testrt/litdemo/in.go](../cl/_testrt/litdemo/in.go) is a minimal `_testrt` case that demonstrates `litgen` output.
+Index: chore/gentests/gentests.go
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>/*\n * Copyright (c) 2024 The XGo Authors (xgo.dev). All rights reserved.\n *\n * Licensed under the Apache License, Version 2.0 (the \"License\");\n * you may not use this file except in compliance with the License.\n * You may obtain a copy of the License at\n *\n *     http://www.apache.org/licenses/LICENSE-2.0\n *\n * Unless required by applicable law or agreed to in writing, software\n * distributed under the License is distributed on an \"AS IS\" BASIS,\n * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.\n * See the License for the specific language governing permissions and\n * limitations under the License.\n */\n\npackage main\n\nimport (\n\t\"fmt\"\n\t\"os\"\n\t\"path/filepath\"\n\t\"strings\"\n\n\t\"github.com/goplus/llgo/cl/cltest\"\n\t\"github.com/goplus/llgo/internal/llgen\"\n\t\"github.com/goplus/mod\"\n)\n\nfunc main() {\n\tdir, _, err := mod.FindGoMod(\".\")\n\tcheck(err)\n\n\tllgenDir(dir + \"/cl/_testlibc\")\n\tllgenDir(dir + \"/cl/_testlibgo\")\n\tllgenDir(dir + \"/cl/_testrt\")\n\tllgenDir(dir + \"/cl/_testgo\")\n\tllgenDir(dir + \"/cl/_testpy\")\n\tllgenDir(dir + \"/cl/_testdata\")\n\n\tgenExpects(dir)\n}\n\nfunc llgenDir(dir string) {\n\tfis, err := os.ReadDir(dir)\n\tcheck(err)\n\tfor _, fi := range fis {\n\t\tname := fi.Name()\n\t\tif !fi.IsDir() || strings.HasPrefix(name, \"_\") {\n\t\t\tcontinue\n\t\t}\n\t\ttestDir := dir + \"/\" + name\n\t\tfmt.Fprintln(os.Stderr, \"llgen\", testDir)\n\t\tcheck(os.Chdir(testDir))\n\t\tllgen.SmartDoFile(testDir)\n\t}\n}\n\nfunc genExpects(root string) {\n\trunExpectDir(root, \"cl/_testlibc\")\n\trunExpectDir(root, \"cl/_testlibgo\")\n\trunExpectDir(root, \"cl/_testrt\")\n\trunExpectDir(root, \"cl/_testgo\")\n\trunExpectDir(root, \"cl/_testpy\")\n\trunExpectDir(root, \"cl/_testdata\")\n}\n\nfunc runExpectDir(root, relDir string) {\n\tdir := filepath.Join(root, relDir)\n\tfis, err := os.ReadDir(dir)\n\tcheck(err)\n\tfor _, fi := range fis {\n\t\tname := fi.Name()\n\t\tif !fi.IsDir() || strings.HasPrefix(name, \"_\") {\n\t\t\tcontinue\n\t\t}\n\t\trelPath := filepath.ToSlash(filepath.Join(relDir, name))\n\t\ttestDir := filepath.Join(dir, name)\n\t\tfmt.Fprintln(os.Stderr, \"expect\", relPath)\n\t\tpkgPath := \"./\" + relPath\n\t\toutput, err := cltest.RunAndCapture(pkgPath, testDir)\n\t\tif err != nil {\n\t\t\tfmt.Fprintln(os.Stderr, \"error:\", relPath, err)\n\t\t\toutput = []byte{';'}\n\t\t}\n\t\texpectFile := filepath.Join(testDir, \"expect.txt\")\n\t\texpect, err := os.ReadFile(expectFile)\n\t\tif err != nil || strings.TrimSpace(string(expect)) == \";\" {\n\t\t\tfmt.Fprintln(os.Stderr, \"skip\", relPath, \"(expect is ';')\")\n\t\t\tcontinue\n\t\t}\n\t\tcheck(os.WriteFile(expectFile, output, 0644))\n\t}\n}\n\nfunc check(err error) {\n\tif err != nil {\n\t\tpanic(err)\n\t}\n}\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/chore/gentests/gentests.go b/chore/gentests/gentests.go
+--- a/chore/gentests/gentests.go	(revision acd85672ddb3524f08c0f4a670ba52adaa9605c7)
++++ b/chore/gentests/gentests.go	(date 1776432788849)
+@@ -17,6 +17,7 @@
+ package main
+ 
+ import (
++	"bufio"
+ 	"fmt"
+ 	"os"
+ 	"path/filepath"
+@@ -50,6 +51,12 @@
+ 			continue
+ 		}
+ 		testDir := dir + "/" + name
++		skip, err := dirHasLITTESTSource(testDir)
++		check(err)
++		if skip {
++			fmt.Fprintln(os.Stderr, "skip llgen", testDir, "(// LITTEST)")
++			continue
++		}
+ 		fmt.Fprintln(os.Stderr, "llgen", testDir)
+ 		check(os.Chdir(testDir))
+ 		llgen.SmartDoFile(testDir)
+@@ -98,3 +105,45 @@
+ 		panic(err)
+ 	}
+ }
++
++func dirHasLITTESTSource(dir string) (bool, error) {
++	entries, err := os.ReadDir(dir)
++	if err != nil {
++		return false, err
++	}
++	for _, entry := range entries {
++		if entry.IsDir() {
++			continue
++		}
++		name := entry.Name()
++		if filepath.Ext(name) != ".go" || strings.HasSuffix(name, "_test.go") {
++			continue
++		}
++		ok, err := hasLITTESTMarker(filepath.Join(dir, name))
++		if err != nil {
++			return false, err
++		}
++		if ok {
++			return true, nil
++		}
++	}
++	return false, nil
++}
++
++func hasLITTESTMarker(path string) (bool, error) {
++	f, err := os.Open(path)
++	if err != nil {
++		return false, err
++	}
++	defer f.Close()
++
++	scanner := bufio.NewScanner(f)
++	if !scanner.Scan() {
++		return false, scanner.Err()
++	}
++	line := strings.TrimSpace(scanner.Text())
++	if !strings.HasPrefix(line, "//") {
++		return false, nil
++	}
++	return strings.TrimSpace(strings.TrimPrefix(line, "//")) == "LITTEST", nil
++}
+Index: README.md
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.BaseRevisionTextPatchEP
+<+>llgo - A Go compiler based on LLVM\n=====\n\n[![Build Status](https://github.com/goplus/llgo/actions/workflows/go.yml/badge.svg)](https://github.com/goplus/llgo/actions/workflows/go.yml)\n[![Go Report Card](https://goreportcard.com/badge/github.com/goplus/llgo)](https://goreportcard.com/report/github.com/goplus/llgo)\n[![GitHub release](https://img.shields.io/github/v/tag/goplus/llgo.svg?label=release)](https://github.com/goplus/llgo/releases)\n[![Coverage Status](https://codecov.io/gh/goplus/llgo/branch/main/graph/badge.svg)](https://codecov.io/gh/goplus/llgo)\n[![GoDoc](https://pkg.go.dev/badge/github.com/goplus/llgo.svg)](https://pkg.go.dev/github.com/goplus/llgo)\n[![Language](https://img.shields.io/badge/language-XGo-blue.svg)](https://github.com/goplus/xgo)\n\nLLGo is a Go compiler based on LLVM in order to better integrate Go with the C ecosystem including Python and JavaScript. It's a subproject of [the XGo project](https://github.com/goplus/gop).\n\nLLGo aims to expand the boundaries of Go/XGo, providing limitless possibilities such as:\n\n* Game development\n* AI and data science\n* WebAssembly\n* Embedded development\n* ...\n\nHow can these be achieved?\n\n```\nLLGo := Go * C ecosystem\n```\n\nLLGo is compatible with C ecosystem through the language's **Application Binary Interface (ABI)**, while LLGo is compatible with Go through its **syntax (source code)**. C ecosystem includes all languages that are ABI compatible with C (eg. C/C++, Python, JavaScript, Objective-C, Swift, etc).\n\n\n## C/C++ standard libary support\n\nYou can import a C/C++ standard library in LLGo!\n\n* [c](https://pkg.go.dev/github.com/goplus/lib/c)\n* [c/syscall](https://pkg.go.dev/github.com/goplus/lib/c/syscall)\n* [c/sys](https://pkg.go.dev/github.com/goplus/lib/c/sys)\n* [c/os](https://pkg.go.dev/github.com/goplus/lib/c/os)\n* [c/math](https://pkg.go.dev/github.com/goplus/lib/c/math)\n* [c/math/cmplx](https://pkg.go.dev/github.com/goplus/lib/c/math/cmplx)\n* [c/math/rand](https://pkg.go.dev/github.com/goplus/lib/c/math/rand)\n* [c/pthread](https://pkg.go.dev/github.com/goplus/lib/c/pthread)\n* [c/pthread/sync](https://pkg.go.dev/github.com/goplus/lib/c/pthread/sync)\n* [c/sync/atomic](https://pkg.go.dev/github.com/goplus/lib/c/sync/atomic)\n* [c/time](https://pkg.go.dev/github.com/goplus/lib/c/time)\n* [c/net](https://pkg.go.dev/github.com/goplus/lib/c/net)\n* [cpp/std](https://pkg.go.dev/github.com/goplus/lib/cpp/std)\n\nHere is a simple example:\n\n<!-- embedme doc/_readme/llgo_simple/simple.go -->\n\n```go\npackage main\n\nimport \"github.com/goplus/lib/c\"\n\nfunc main() {\n\tc.Printf(c.Str(\"Hello world\\n\"))\n}\n```\n\nThis is a simple example of calling the C `printf` function to print `Hello world`. Here, `c.Str` is not a function for converting a Go string to a C string, but a built-in instruction supported by `llgo` for generating a C string constant.\n\nThe `_demo` directory contains some C standard libary related demos (it start with `_` to prevent the `go` command from compiling it):\n\n* [hello](_demo/c/hello/hello.go): call C `printf` to print `Hello world`\n* [concat](_demo/c/concat/concat.go): call C `fprintf` with `stderr`\n* [qsort](_demo/c/qsort/qsort.go): call C function with a callback (eg. `qsort`)\n\nTo run these demos (If you haven't installed `llgo` yet, please refer to [How to install](#how-to-install)):\n\n```sh\ncd <demo-directory>  # eg. cd _demo/c/hello\nllgo run .\n```\n\n\n## How to support C/C++ and Python\n\nLLGo use `go:linkname` to link an extern symbol througth its ABI:\n\n<!-- embedme doc/_readme/llgo_call_c/call_c.go#L3-L6 -->\n\n```go\nimport _ \"unsafe\" // for go:linkname\n\n//go:linkname Sqrt C.sqrt\nfunc Sqrt(x float64) float64\n```\n\nYou can directly integrate it into [your own code](_demo/c/linkname/linkname.go):\n\n<!-- embedme doc/_readme/llgo_call_c/call_c.go -->\n\n```go\npackage main\n\nimport _ \"unsafe\" // for go:linkname\n\n//go:linkname Sqrt C.sqrt\nfunc Sqrt(x float64) float64\n\nfunc main() {\n\tprintln(\"sqrt(2) =\", Sqrt(2))\n}\n```\n\nOr put it into a package (see [c/math](https://github.com/goplus/lib/tree/main/c/math/math.go)):\n\n<!-- embedme doc/_readme/llgo_call_cmath/call_cmath.go -->\n\n```go\npackage main\n\nimport \"github.com/goplus/lib/c/math\"\n\nfunc main() {\n\tprintln(\"sqrt(2) =\", math.Sqrt(2))\n}\n```\n\n\n## Python support\n\nYou can import a Python library in LLGo!\n\nAnd you can import any Python library into `llgo` through a program called `llpyg` (see [Development tools](#development-tools)). The following libraries have been included in `llgo`:\n\n* [py](https://pkg.go.dev/github.com/goplus/lib/py) (abi)\n* [py/std](https://pkg.go.dev/github.com/goplus/lib/py/std) (builtins)\n* [py/sys](https://pkg.go.dev/github.com/goplus/lib/py/sys)\n* [py/os](https://pkg.go.dev/github.com/goplus/lib/py/os)\n* [py/math](https://pkg.go.dev/github.com/goplus/lib/py/math)\n* [py/json](https://pkg.go.dev/github.com/goplus/lib/py/json)\n* [py/inspect](https://pkg.go.dev/github.com/goplus/lib/py/inspect)\n* [py/statistics](https://pkg.go.dev/github.com/goplus/lib/py/statistics)\n* [py/numpy](https://pkg.go.dev/github.com/goplus/lib/py/numpy)\n* [py/pandas](https://pkg.go.dev/github.com/goplus/lib/py/pandas)\n* [py/torch](https://pkg.go.dev/github.com/goplus/lib/py/torch)\n* [py/matplotlib](https://pkg.go.dev/github.com/goplus/lib/py/matplotlib)\n\nNote: For third-party libraries (such as pandas and pytorch), you still need to install the library files.\n\nHere is an example:\n\n<!-- embedme doc/_readme/llgo_call_py/call_py.go -->\n\n```go\npackage main\n\nimport (\n\t\"github.com/goplus/lib/py\"\n\t\"github.com/goplus/lib/py/math\"\n\t\"github.com/goplus/lib/py/std\"\n)\n\nfunc main() {\n\tx := math.Sqrt(py.Float(2))       // x = sqrt(2)\n\tstd.Print(py.Str(\"sqrt(2) =\"), x) // print(\"sqrt(2) =\", x)\n}\n```\n\nIt is equivalent to the following Python code:\n\n<!-- embedme doc/_readme/llgo_call_py/call_math.py -->\n\n```py\nimport math\n\nx = math.sqrt(2)\nprint(\"sqrt =\", x)\n```\n\nHere, We call `py.Float(2)` to create a Python number 2, and pass it to Python’s `math.sqrt` to get `x`. Then we call `std.Print` to print the result.\n\nLet's look at a slightly more complex example. For example, we use `numpy` to calculate:\n\n<!-- embedme doc/_readme/llgo_py_list/py_list.go -->\n\n```go\npackage main\n\nimport (\n\t\"github.com/goplus/lib/py\"\n\t\"github.com/goplus/lib/py/numpy\"\n\t\"github.com/goplus/lib/py/std\"\n)\n\nfunc main() {\n\ta := py.List(\n\t\tpy.List(1.0, 2.0, 3.0),\n\t\tpy.List(4.0, 5.0, 6.0),\n\t\tpy.List(7.0, 8.0, 9.0),\n\t)\n\tb := py.List(\n\t\tpy.List(9.0, 8.0, 7.0),\n\t\tpy.List(6.0, 5.0, 4.0),\n\t\tpy.List(3.0, 2.0, 1.0),\n\t)\n\tx := numpy.Add(a, b)\n\tstd.Print(py.Str(\"a+b =\"), x)\n}\n```\n\nHere we define two 3x3 matrices a and b, add them to get x, and then print the result.\n\nThe `_demo/py/` directory contains some python related demos:\n\n* [callpy](_demo/py/callpy/callpy.go): call Python standard library function `math.sqrt`\n* [pi](_demo/py/pi/pi.go): print python constants `math.pi`\n* [statistics](_demo/py/statistics/statistics.go): define a python list and call `statistics.mean` to get the mean\n* [matrix](_demo/py/matrix/matrix.go): a basic `numpy` demo\n\nTo run these demos (If you haven't installed `llgo` yet, please refer to [How to install](#how-to-install)):\n\n```sh\ncd <demo-directory>  # eg. cd _demo/py/callpy\nllgo run .\n```\n\n\n## Other frequently used libraries\n\nLLGo can easily import any libraries from the C ecosystem. Currently, this import process is still manual, but in the future, it will be automated similar to Python library imports.\n\nThe currently supported libraries include:\n\n* [c/bdwgc](https://pkg.go.dev/github.com/goplus/lib/c/bdwgc)\n* [c/cjson](https://pkg.go.dev/github.com/goplus/lib/c/cjson)\n* [c/clang](https://pkg.go.dev/github.com/goplus/lib/c/clang)\n* [c/ffi](https://pkg.go.dev/github.com/goplus/lib/c/ffi)\n* [c/libuv](https://pkg.go.dev/github.com/goplus/lib/c/libuv)\n* [c/llama2](https://pkg.go.dev/github.com/goplus/lib/c/llama2)\n* [c/lua](https://pkg.go.dev/github.com/goplus/lib/c/lua)\n* [c/neco](https://pkg.go.dev/github.com/goplus/lib/c/neco)\n* [c/openssl](https://pkg.go.dev/github.com/goplus/lib/c/openssl)\n* [c/raylib](https://pkg.go.dev/github.com/goplus/lib/c/raylib)\n* [c/sqlite](https://pkg.go.dev/github.com/goplus/lib/c/sqlite)\n* [c/zlib](https://pkg.go.dev/github.com/goplus/lib/c/zlib)\n* [cpp/inih](https://pkg.go.dev/github.com/goplus/lib/cpp/inih)\n* [cpp/llvm](https://pkg.go.dev/github.com/goplus/lib/cpp/llvm)\n\nHere are some examples related to them:\n\n* [llama2-c](_demo/c/llama2-c): inference Llama 2 (It's the first llgo AI example)\n* [mkjson](https://github.com/goplus/lib/tree/main/c/cjson/_demo/mkjson/mkjson.go): create a json object and print it\n* [sqlitedemo](https://github.com/goplus/lib/tree/main/c/sqlite/_demo/sqlitedemo/demo.go): a basic sqlite demo\n* [tetris](https://github.com/goplus/lib/tree/main/c/raylib/_demo/tetris/tetris.go): a tetris game based on raylib\n\n\n## Go syntax support\n\nAll Go syntax (including `cgo`) is already supported. Here are some examples:\n\n* [concat](_demo/c/concat/concat.go): define a variadic function\n* [genints](_demo/c/genints/genints.go): various forms of closure usage (including C function, recv.method and anonymous function)\n* [errors](_cmptest/errors/errors.go): demo to implement error interface\n* [defer](_cmptest/defer/defer.go): defer demo\n* [goroutine](_demo/go/goroutine/goroutine.go): goroutine demo\n\n\n### Defer\n\nLLGo now supports `defer` within loops, matching Go's semantics of executing defers in LIFO order for every iteration. The usual caveat from Go still applies: be mindful of loop-heavy defer usage because it allocates per iteration.\n\n\n### Garbage Collection (GC)\n\nBy default, LLGo implements `gc` based on [bdwgc](https://www.hboehm.info/gc/) (also known as [libgc](https://www.hboehm.info/gc/)).\n\nHowever, you can disable gc by specifying the `nogc` tag. For example:\n\n```sh\nllgo run -tags nogc .\n```\n\n\n## Go packages support\n\nHere are the Go packages that can be imported correctly:\n\n* [unsafe](https://pkg.go.dev/unsafe)\n* [unicode](https://pkg.go.dev/unicode)\n* [unicode/utf8](https://pkg.go.dev/unicode/utf8)\n* [unicode/utf16](https://pkg.go.dev/unicode/utf16)\n* [math](https://pkg.go.dev/math)\n* [math/big](https://pkg.go.dev/math/big) (partially)\n* [math/bits](https://pkg.go.dev/math/bits)\n* [math/cmplx](https://pkg.go.dev/math/cmplx)\n* [math/rand](https://pkg.go.dev/math/rand)\n* [net/url](https://pkg.go.dev/net/url)\n* [errors](https://pkg.go.dev/errors)\n* [context](https://pkg.go.dev/context)\n* [io](https://pkg.go.dev/io)\n* [io/fs](https://pkg.go.dev/io/fs)\n* [io/ioutil](https://pkg.go.dev/io/ioutil)\n* [log](https://pkg.go.dev/log)\n* [flag](https://pkg.go.dev/flag)\n* [sort](https://pkg.go.dev/sort)\n* [bytes](https://pkg.go.dev/bytes)\n* [bufio](https://pkg.go.dev/bufio)\n* [strings](https://pkg.go.dev/strings)\n* [strconv](https://pkg.go.dev/strconv)\n* [path](https://pkg.go.dev/path)\n* [path/filepath](https://pkg.go.dev/path/filepath)\n* [sync/atomic](https://pkg.go.dev/sync/atomic)\n* [sync](https://pkg.go.dev/sync) (partially)\n* [syscall](https://pkg.go.dev/syscall) (partially)\n* [runtime](https://pkg.go.dev/runtime) (partially)\n* [os](https://pkg.go.dev/os) (partially)\n* [os/exec](https://pkg.go.dev/os/exec) (partially)\n* [fmt](https://pkg.go.dev/fmt) (partially)\n* [reflect](https://pkg.go.dev/reflect) (partially)\n* [time](https://pkg.go.dev/time) (partially)\n* [encoding](https://pkg.go.dev/encoding)\n* [encoding/binary](https://pkg.go.dev/encoding/binary)\n* [encoding/hex](https://pkg.go.dev/encoding/hex)\n* [encoding/base32](https://pkg.go.dev/encoding/base32)\n* [encoding/base64](https://pkg.go.dev/encoding/base64)\n* [encoding/csv](https://pkg.go.dev/encoding/csv)\n* [net/textproto](https://pkg.go.dev/net/textproto)\n* [hash](https://pkg.go.dev/hash)\n* [hash/adler32](https://pkg.go.dev/hash/adler32)\n* [hash/crc32](https://pkg.go.dev/hash/crc32) (partially)\n* [hash/crc64](https://pkg.go.dev/hash/crc64)\n* [hash/maphash](https://pkg.go.dev/hash/maphash) (partially)\n* [crypto](https://pkg.go.dev/crypto)\n* [crypto/md5](https://pkg.go.dev/crypto/md5)\n* [crypto/sha1](https://pkg.go.dev/crypto/sha1)\n* [crypto/sha256](https://pkg.go.dev/crypto/sha256)\n* [crypto/sha512](https://pkg.go.dev/crypto/sha512) (partially)\n* [crypto/hmac](https://pkg.go.dev/crypto/hmac) (partially)\n* [crypto/rand](https://pkg.go.dev/crypto/rand) (partially)\n* [crypto/subtle](https://pkg.go.dev/crypto/subtle) (partially)\n* [regexp](https://pkg.go.dev/regexp)\n* [regexp/syntax](https://pkg.go.dev/regexp/syntax)\n* [go/token](https://pkg.go.dev/go/token)\n* [go/scanner](https://pkg.go.dev/go/scanner)\n* [go/parser](https://pkg.go.dev/go/parser)\n\n\n## Dependencies\n\n- [Go 1.21+](https://go.dev)\n- [LLVM 18](https://llvm.org)\n- [Clang 18](https://clang.llvm.org)\n- [LLD 18](https://lld.llvm.org)\n- [pkg-config 0.29+](https://www.freedesktop.org/wiki/Software/pkg-config/)\n- [bdwgc/libgc 8.0+](https://www.hboehm.info/gc/)\n- [OpenSSL 3.0+](https://www.openssl.org/)\n- [zlib 1.2+](https://www.zlib.net)\n- [Python 3.12+](https://www.python.org) (optional, for [github.com/goplus/lib/py](https://pkg.go.dev/github.com/goplus/lib/py))\n\n## How to install\n\nFollow these steps to generate the `llgo` command (its usage is the same as the `go` command):\n\n### on macOS\n\n<!-- embedme doc/_readme/scripts/install_macos.sh#L2-L1000 -->\n\n```sh\nbrew update\nbrew install llvm@19 lld@19 bdw-gc openssl cjson libffi libuv pkg-config\nbrew install python@3.12 # optional\nbrew link --overwrite llvm@19 lld@19 libffi\n# curl https://raw.githubusercontent.com/goplus/llgo/refs/heads/main/install.sh | bash\n./install.sh\n```\n\n### on Linux\n\n#### Debian/Ubuntu\n\n<!-- embedme doc/_readme/scripts/install_ubuntu.sh#L2-L1000 -->\n\n```sh\necho \"deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-19 main\" | sudo tee /etc/apt/sources.list.d/llvm.list\nwget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -\nsudo apt-get update\nsudo apt-get install -y llvm-19-dev clang-19 libclang-19-dev lld-19 libunwind-19-dev libc++-19-dev pkg-config libgc-dev libssl-dev zlib1g-dev libcjson-dev libsqlite3-dev libuv1-dev\nsudo apt-get install -y python3.12-dev # optional\n#curl https://raw.githubusercontent.com/goplus/llgo/refs/heads/main/install.sh | bash\n./install.sh\n```\n\n#### Alpine Linux\n\n```sh\napk add go llvm19-dev clang19-dev lld19 pkgconf gc-dev libunwind-dev openssl-dev zlib-dev\napk add python3-dev # optional\napk add g++ # build only\nexport LLVM_CONFIG=/usr/lib/llvm19/bin/llvm-config\nexport CGO_CPPFLAGS=\"$($LLVM_CONFIG --cppflags)\"\nexport CGO_CXXFLAGS=-std=c++17\nexport CGO_LDFLAGS=\"$($LLVM_CONFIG --ldflags) $($LLVM_CONFIG --libs all)\"\ncurl https://raw.githubusercontent.com/goplus/llgo/refs/heads/main/install.sh | bash\n```\n\ndocker alpine 386 llgo environment\n```\nexport GCC_ROOT_DIR=$(gcc -print-search-dirs | grep 'install:' | awk -F': ' '{print $2}')\nexport LDFLAGS=\"-L$GCC_ROOT_DIR -B$GCC_ROOT_DIR -Wl,-dynamic-linker,/lib/ld-musl-i386.so.1\"\nllgo run .\n```\n\n### on Windows\n\nTODO\n\n### Install from source\n\n<!-- embedme doc/_readme/scripts/install_llgo.sh#L2-L1000 -->\n\n```sh\ngit clone https://github.com/goplus/llgo.git\ncd llgo\n./install.sh\n```\n\n## Development tools\n\n* [pydump](_xtool/pydump): It's the first program compiled by `llgo` (NOT `go`) in a production environment. It outputs symbol information (functions, variables, and constants) from a Python library in JSON format, preparing for the generation of corresponding packages in `llgo`.\n* [pysigfetch](https://github.com/goplus/hdq/tree/main/chore/pysigfetch): It generates symbol information by extracting information from Python's documentation site. This tool is not part of the `llgo` project, but we depend on it.\n* [llpyg](chore/llpyg): It is used to automatically convert Python libraries into Go packages that `llgo` can import. It depends on `pydump` and `pysigfetch` to accomplish the task.\n* [llgen](chore/llgen): It is used to compile Go packages into LLVM IR files (*.ll).\n* [ssadump](chore/ssadump): It is a Go SSA builder and interpreter.\n\nHow do I generate these tools?\n\n<!-- embedme doc/_readme/scripts/install_full.sh#L2-L1000 -->\n\n```sh\ngit clone https://github.com/goplus/llgo.git\ncd llgo\ngo install -v ./cmd/...\ngo install -v ./chore/...  # compile all tools except pydump\nexport LLGO_ROOT=$PWD\ncd _xtool\nllgo install ./...   # compile pydump\ngo install github.com/goplus/hdq/chore/pysigfetch@v0.8.1  # compile pysigfetch\n\n```\n\n## Key modules\n\nBelow are the key modules for understanding the implementation principles of `llgo`:\n\n* [ssa](https://pkg.go.dev/github.com/goplus/llgo/ssa): It generates LLVM IR files (LLVM SSA) using the semantics (interfaces) of Go SSA. Although `LLVM SSA` and `Go SSA` are both IR languages, they work at completely different levels. `LLVM SSA` is closer to machine code, which abstracts different instruction sets. While `Go SSA` is closer to a high-level language. We can think of it as the instruction set of the `Go computer`. `llgo/ssa` is not just limited to the `llgo` compiler. If we view it as the high-level expressive power of `LLVM`, you'll find it very useful. Prior to `llgo/ssa`, you had to operate `LLVM` using machine code semantics. But now, with the advanced SSA form (in the semantics of Go SSA), you can conveniently utilize `LLVM`.\n* [cl](https://pkg.go.dev/github.com/goplus/llgo/cl): It is the core of the llgo compiler. It converts a Go package into LLVM IR files. It depends on `llgo/ssa`.\n* [internal/build](https://pkg.go.dev/github.com/goplus/llgo/internal/build): It strings together the entire compilation process of `llgo`. It depends on `llgo/ssa` and `llgo/cl`.\n
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/README.md b/README.md
+--- a/README.md	(revision acd85672ddb3524f08c0f4a670ba52adaa9605c7)
++++ b/README.md	(date 1776436471960)
+@@ -424,8 +424,12 @@
+ * [pysigfetch](https://github.com/goplus/hdq/tree/main/chore/pysigfetch): It generates symbol information by extracting information from Python's documentation site. This tool is not part of the `llgo` project, but we depend on it.
+ * [llpyg](chore/llpyg): It is used to automatically convert Python libraries into Go packages that `llgo` can import. It depends on `pydump` and `pysigfetch` to accomplish the task.
+ * [llgen](chore/llgen): It is used to compile Go packages into LLVM IR files (*.ll).
++* [gentests](chore/gentests): It refreshes the built-in golden test data under `cl/_test*`, including `out.ll` and `expect.txt`. Directories that use source-embedded `// LITTEST` checks are skipped for `out.ll` regeneration.
++* [litgen](chore/litgen): It generates and refreshes source-embedded `// LITTEST` FileCheck directives from the current LLVM IR for marked Go source files.
+ * [ssadump](chore/ssadump): It is a Go SSA builder and interpreter.
+ 
++For local workflows and test-golden refresh commands, see [dev/README.md](dev/README.md#6-refresh-test-goldens).
++
+ How do I generate these tools?
+ 
+ <!-- embedme doc/_readme/scripts/install_full.sh#L2-L1000 -->
+Index: chore/gentests/gentests_test.go
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/chore/gentests/gentests_test.go b/chore/gentests/gentests_test.go
+new file mode 100644
+--- /dev/null	(date 1776432788849)
++++ b/chore/gentests/gentests_test.go	(date 1776432788849)
+@@ -0,0 +1,35 @@
++package main
++
++import (
++	"os"
++	"path/filepath"
++	"testing"
++)
++
++func TestDirHasLITTESTSource(t *testing.T) {
++	dir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(dir, "in.go"), []byte("// LITTEST\npackage main\n"), 0644); err != nil {
++		t.Fatal(err)
++	}
++	ok, err := dirHasLITTESTSource(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !ok {
++		t.Fatal("dirHasLITTESTSource = false, want true")
++	}
++}
++
++func TestDirHasLITTESTSource_IgnoresUnmarkedFiles(t *testing.T) {
++	dir := t.TempDir()
++	if err := os.WriteFile(filepath.Join(dir, "in.go"), []byte("package main\n"), 0644); err != nil {
++		t.Fatal(err)
++	}
++	ok, err := dirHasLITTESTSource(dir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if ok {
++		t.Fatal("dirHasLITTESTSource = true, want false")
++	}
++}
+Index: chore/litgen/litgen.go
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/chore/litgen/litgen.go b/chore/litgen/litgen.go
+new file mode 100644
+--- /dev/null	(date 1776432788849)
++++ b/chore/litgen/litgen.go	(date 1776432788849)
+@@ -0,0 +1,116 @@
++/*
++ * Copyright (c) 2026 The XGo Authors (xgo.dev). All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package main
++
++import (
++	"flag"
++	"fmt"
++	"os"
++	"path/filepath"
++)
++
++func main() {
++	flag.Usage = func() {
++		fmt.Fprintf(flag.CommandLine.Output(), "Usage: %s <file-or-dir> [<file-or-dir>...]\n", filepath.Base(os.Args[0]))
++		flag.PrintDefaults()
++	}
++	flag.Parse()
++	if flag.NArg() == 0 {
++		flag.Usage()
++		os.Exit(2)
++	}
++	for _, arg := range flag.Args() {
++		check(processPath(arg))
++	}
++}
++
++func processPath(path string) error {
++	abs, err := filepath.Abs(path)
++	if err != nil {
++		return err
++	}
++	fi, err := os.Stat(abs)
++	if err != nil {
++		return err
++	}
++	if fi.IsDir() {
++		return processTree(abs)
++	}
++	if filepath.Ext(abs) != ".go" {
++		return fmt.Errorf("%s: expected .go file or directory", abs)
++	}
++	ok, err := hasLITTESTMarker(abs)
++	if err != nil {
++		return err
++	}
++	if !ok {
++		return fmt.Errorf("%s: missing // LITTEST marker", abs)
++	}
++	target, err := resolveTarget(abs, abs)
++	if err != nil {
++		return err
++	}
++	fmt.Fprintln(os.Stderr, "litgen", target.sourceFile)
++	return generateFile(target)
++}
++
++func processTree(root string) error {
++	var targets []resolvedTarget
++	err := filepath.WalkDir(root, func(path string, d os.DirEntry, err error) error {
++		if err != nil {
++			return err
++		}
++		if !d.IsDir() {
++			return nil
++		}
++		if path != root && len(d.Name()) > 0 && d.Name()[0] == '_' {
++			return filepath.SkipDir
++		}
++		marked, found, err := findMarkedSourceFile(path)
++		if err != nil {
++			return err
++		}
++		if !found {
++			return nil
++		}
++		target, err := resolveTarget(marked, path)
++		if err != nil {
++			return err
++		}
++		targets = append(targets, target)
++		return nil
++	})
++	if err != nil {
++		return err
++	}
++	if len(targets) == 0 {
++		return fmt.Errorf("%s: no // LITTEST sources found", root)
++	}
++	for _, target := range targets {
++		fmt.Fprintln(os.Stderr, "litgen", target.sourceFile)
++		if err := generateFile(target); err != nil {
++			return err
++		}
++	}
++	return nil
++}
++
++func check(err error) {
++	if err != nil {
++		panic(err)
++	}
++}
+Index: chore/litgen/rewrite_test.go
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/chore/litgen/rewrite_test.go b/chore/litgen/rewrite_test.go
+new file mode 100644
+--- /dev/null	(date 1776433657329)
++++ b/chore/litgen/rewrite_test.go	(date 1776433657329)
+@@ -0,0 +1,185 @@
++package main
++
++import (
++	"strings"
++	"testing"
++)
++
++func TestRewriteSource_InsertsMainClosureAndStub(t *testing.T) {
++	const src = `// LITTEST
++package main
++
++func main() {
++	fn := func() {}
++	fn()
++}
++`
++	const ir = `define void @"example.com/p.main"() {
++_llgo_0:
++  %0 = call ptr @"example.com/p.main$1"()
++  ret void
++}
++
++define void @"example.com/p.main$1"() {
++_llgo_0:
++  ret void
++}
++
++define linkonce void @"__llgo_stub.example.com/p.main$1"(ptr %0) {
++_llgo_0:
++  tail call void @"example.com/p.main$1"()
++  ret void
++}
++`
++	got, err := rewriteSource(src, "in.go", "example.com/p", "example.com", ir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	mainCheck := `// CHECK-LABEL: define void @"{{.*}}/p.main"() {`
++	mainDecl := "func main() {"
++	if !strings.Contains(got, mainCheck) {
++		t.Fatalf("main checks not inserted before func main:\n%s", got)
++	}
++	if strings.Index(got, mainCheck) > strings.Index(got, mainDecl) {
++		t.Fatalf("main checks should appear before func main:\n%s", got)
++	}
++	closureCheck := "\t// CHECK-LABEL: define void @\"{{.*}}/p.main$1\"() {"
++	closureStmt := "\tfn := func() {}"
++	if !strings.Contains(got, closureCheck) {
++		t.Fatalf("closure checks not inserted before func literal:\n%s", got)
++	}
++	if strings.Index(got, closureCheck) > strings.Index(got, closureStmt) {
++		t.Fatalf("closure checks should appear before func literal:\n%s", got)
++	}
++	if !strings.Contains(got, `// CHECK-LABEL: define linkonce void @"__llgo_stub.{{.*}}/p.main$1"(ptr %0) {`) {
++		t.Fatalf("stub checks missing:\n%s", got)
++	}
++	if strings.Index(got, `// CHECK-LABEL: define linkonce void @"__llgo_stub.{{.*}}/p.main$1"(ptr %0) {`) < strings.Index(got, "func main()") {
++		t.Fatalf("stub checks should be appended after source:\n%s", got)
++	}
++}
++
++func TestRewriteSource_AddsInitAndCheckEmptyAndSkipsHelpers(t *testing.T) {
++	const src = `// LITTEST
++package main
++
++var x = 1
++
++func main() {}
++`
++	const ir = `define void @"example.com/p.init"() {
++_llgo_0:
++  br i1 true, label %_llgo_1, label %_llgo_2
++
++_llgo_1:
++  ret void
++
++_llgo_2:
++  ret void
++}
++
++define i1 @"example.com/runtime/internal/runtime.strequal"(ptr %0, ptr %1) {
++_llgo_0:
++  ret i1 true
++}
++
++define void @"example.com/p.main"() {
++_llgo_0:
++  ret void
++}
++`
++	got, err := rewriteSource(src, "in.go", "example.com/p", "example.com", ir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	initCheck := `// CHECK-LABEL: define void @"{{.*}}/p.init"() {`
++	if !strings.Contains(got, initCheck) {
++		t.Fatalf("init checks not inserted before var decl:\n%s", got)
++	}
++	if strings.Index(got, initCheck) > strings.Index(got, "var x = 1") {
++		t.Fatalf("init checks should appear before var decl:\n%s", got)
++	}
++	if !strings.Contains(got, "// CHECK-EMPTY:") {
++		t.Fatalf("blank IR lines should use CHECK-EMPTY:\n%s", got)
++	}
++	if strings.Contains(got, "runtime.strequal") {
++		t.Fatalf("runtime.strequal helper should be skipped:\n%s", got)
++	}
++}
++
++func TestRewriteSource_PreservesIROrderWhenAnchorMovesBackward(t *testing.T) {
++	const src = `// LITTEST
++package main
++
++var seed = 40
++
++func add(x, y int) int {
++	return x + y
++}
++
++func main() {}
++`
++	const ir = `define i64 @"example.com/p.add"(i64 %0, i64 %1) {
++_llgo_0:
++  %2 = add i64 %0, %1
++  ret i64 %2
++}
++
++define void @"example.com/p.init"() {
++_llgo_0:
++  ret void
++}
++
++define void @"example.com/p.main"() {
++_llgo_0:
++  ret void
++}
++`
++	got, err := rewriteSource(src, "in.go", "example.com/p", "example.com", ir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	addCheck := `// CHECK-LABEL: define i64 @"{{.*}}/p.add"(i64 %0, i64 %1) {`
++	initCheck := `// CHECK-LABEL: define void @"{{.*}}/p.init"() {`
++	if strings.Index(got, addCheck) < 0 || strings.Index(got, initCheck) < 0 {
++		t.Fatalf("missing checks:\n%s", got)
++	}
++	if strings.Index(got, addCheck) > strings.Index(got, initCheck) {
++		t.Fatalf("IR order should be preserved even if init anchor is earlier:\n%s", got)
++	}
++}
++
++func TestRewriteSource_AddsReferencedNumericGlobalsAtTop(t *testing.T) {
++	const src = `// LITTEST
++package main
++
++func main() {}
++`
++	const ir = `@0 = private unnamed_addr constant [4 x i8] c"Hi\0A\00", align 1
++@1 = private unnamed_addr constant [3 x i8] c"%s\00", align 1
++@"example.com/p.named" = global i64 1
++
++define void @"example.com/p.main"() {
++_llgo_0:
++  call void @puts(ptr @0)
++  call void @printf(ptr @1)
++  ret void
++}
++`
++	got, err := rewriteSource(src, "in.go", "example.com/p", "example.com", ir)
++	if err != nil {
++		t.Fatal(err)
++	}
++	if !strings.Contains(got, `// CHECK-LINE: @0 = private unnamed_addr constant [4 x i8] c"Hi\0A\00", align 1`) {
++		t.Fatalf("missing numeric global @0:\n%s", got)
++	}
++	if !strings.Contains(got, `// CHECK-LINE: @1 = private unnamed_addr constant [3 x i8] c"%s\00", align 1`) {
++		t.Fatalf("missing numeric global @1:\n%s", got)
++	}
++	if strings.Contains(got, `// CHECK-LINE: @"{{.*}}/p.named" = global i64 1`) {
++		t.Fatalf("named globals should not be emitted by default:\n%s", got)
++	}
++	if strings.Index(got, `// CHECK-LINE: @0 = private unnamed_addr constant [4 x i8] c"Hi\0A\00", align 1`) > strings.Index(got, "func main()") {
++		t.Fatalf("global checks should be placed before first declaration:\n%s", got)
++	}
++}
+Index: chore/litgen/rewrite.go
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/chore/litgen/rewrite.go b/chore/litgen/rewrite.go
+new file mode 100644
+--- /dev/null	(date 1776433657329)
++++ b/chore/litgen/rewrite.go	(date 1776433657329)
+@@ -0,0 +1,619 @@
++/*
++ * Copyright (c) 2026 The XGo Authors (xgo.dev). All rights reserved.
++ *
++ * Licensed under the Apache License, Version 2.0 (the "License");
++ * you may not use this file except in compliance with the License.
++ * You may obtain a copy of the License at
++ *
++ *     http://www.apache.org/licenses/LICENSE-2.0
++ *
++ * Unless required by applicable law or agreed to in writing, software
++ * distributed under the License is distributed on an "AS IS" BASIS,
++ * WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
++ * See the License for the specific language governing permissions and
++ * limitations under the License.
++ */
++
++package main
++
++import (
++	"bufio"
++	"fmt"
++	"go/ast"
++	"go/format"
++	"go/parser"
++	"go/token"
++	"os"
++	"path"
++	"path/filepath"
++	"reflect"
++	"regexp"
++	"sort"
++	"strings"
++
++	"github.com/goplus/llgo/internal/llgen"
++	"github.com/goplus/mod"
++)
++
++const littestMarker = "LITTEST"
++
++type resolvedTarget struct {
++	sourceFile string
++	genTarget  string
++	pkgDir     string
++	modulePath string
++	pkgPath    string
++}
++
++type irProgram struct {
++	globals []irGlobal
++	funcs   []irFunction
++}
++
++type irGlobal struct {
++	symbol string
++	line   string
++}
++
++type irFunction struct {
++	symbol string
++	lines  []string
++}
++
++var (
++	defineQuotedRE  = regexp.MustCompile(`^define\b.* @"([^"]+)"\(`)
++	definePlainRE   = regexp.MustCompile(`^define\b.* @([^\s(]+)\(`)
++	globalQuotedRE  = regexp.MustCompile(`^@"([^"]+)"\s*=`)
++	globalPlainRE   = regexp.MustCompile(`^@([A-Za-z0-9$._-]+)\s*=`)
++	globalRefRE     = regexp.MustCompile(`@"([^"]+)"|@([A-Za-z0-9$._-]+)`)
++	checkLineRE     = regexp.MustCompile(`^\s*//\s*CHECK(?:-[A-Z]+)?:`)
++	debugMetaRE     = regexp.MustCompile(`, ![A-Za-z0-9_.-]+ ![0-9]+`)
++	attrGroupTailRE = regexp.MustCompile(`\s+#\d+$`)
++	numericNameRE   = regexp.MustCompile(`^\d+$`)
++)
++
++func generateFile(target resolvedTarget) error {
++	data, err := os.ReadFile(target.sourceFile)
++	if err != nil {
++		return err
++	}
++	cleaned := stripCheckDirectives(string(data))
++	ir, err := genIR(target.genTarget)
++	if err != nil {
++		return err
++	}
++	updated, err := rewriteSource(cleaned, target.sourceFile, target.pkgPath, target.modulePath, ir)
++	if err != nil {
++		return err
++	}
++	formatted, err := format.Source([]byte(updated))
++	if err != nil {
++		return fmt.Errorf("%s: gofmt failed: %w", target.sourceFile, err)
++	}
++	return os.WriteFile(target.sourceFile, formatted, 0644)
++}
++
++func resolveTarget(sourceFile, genTarget string) (resolvedTarget, error) {
++	pkgDir := filepath.Dir(sourceFile)
++	root, goMod, err := mod.FindGoMod(pkgDir)
++	if err != nil {
++		return resolvedTarget{}, err
++	}
++	modulePath, err := readModulePath(goMod)
++	if err != nil {
++		return resolvedTarget{}, err
++	}
++	pkgPath, err := packagePath(modulePath, root, pkgDir)
++	if err != nil {
++		return resolvedTarget{}, err
++	}
++	return resolvedTarget{
++		sourceFile: sourceFile,
++		genTarget:  genTarget,
++		pkgDir:     pkgDir,
++		modulePath: modulePath,
++		pkgPath:    pkgPath,
++	}, nil
++}
++
++func genIR(target string) (ret string, err error) {
++	defer func() {
++		if r := recover(); r != nil {
++			err = fmt.Errorf("llgen failed for %s: %v", target, r)
++		}
++	}()
++	return llgen.GenFrom(target), nil
++}
++
++func readModulePath(goMod string) (string, error) {
++	f, err := os.Open(goMod)
++	if err != nil {
++		return "", err
++	}
++	defer f.Close()
++
++	scanner := bufio.NewScanner(f)
++	for scanner.Scan() {
++		line := strings.TrimSpace(scanner.Text())
++		if line == "" || strings.HasPrefix(line, "//") {
++			continue
++		}
++		if strings.HasPrefix(line, "module ") {
++			return strings.TrimSpace(strings.TrimPrefix(line, "module ")), nil
++		}
++	}
++	if err := scanner.Err(); err != nil {
++		return "", err
++	}
++	return "", fmt.Errorf("%s: module directive not found", goMod)
++}
++
++func packagePath(modulePath, root, pkgDir string) (string, error) {
++	rel, err := filepath.Rel(root, pkgDir)
++	if err != nil {
++		return "", err
++	}
++	if rel == "." {
++		return modulePath, nil
++	}
++	return path.Join(modulePath, filepath.ToSlash(rel)), nil
++}
++
++func rewriteSource(src, srcPath, pkgPath, modulePath, ir string) (string, error) {
++	fset := token.NewFileSet()
++	file, err := parser.ParseFile(fset, srcPath, src, parser.ParseComments)
++	if err != nil {
++		return "", err
++	}
++	prog := parseIR(ir)
++	anchors, topPos := collectAnchors(src, fset, file)
++	injections := make(map[int][]string)
++
++	if globals := buildGlobalChecks(prog, modulePath); len(globals) != 0 {
++		injections[topPos] = append(injections[topPos], formatDirectiveBlock(indentAt(src, topPos), globals))
++	}
++	eof := len(src)
++	lastOffset := topPos
++	for _, fn := range prog.funcs {
++		if shouldSkipFunctionCheck(fn.symbol) {
++			continue
++		}
++		lines := buildFunctionChecks(fn, modulePath)
++		if len(lines) == 0 {
++			continue
++		}
++		offset := eof
++		if name, ok := trimPkgPrefix(fn.symbol, pkgPath); ok {
++			if pos, found := anchors[name]; found {
++				offset = pos
++			}
++		}
++		if offset < lastOffset {
++			offset = lastOffset
++		}
++		injections[offset] = append(injections[offset], formatDirectiveBlock(indentAt(src, offset), lines))
++		lastOffset = offset
++	}
++	return applyInjections(src, injections), nil
++}
++
++func collectAnchors(src string, fset *token.FileSet, file *ast.File) (map[string]int, int) {
++	anchors := make(map[string]int)
++	topPos := topInsertPos(src, fset, file)
++	if initPos, ok := syntheticInitPos(src, fset, file); ok {
++		anchors["init"] = initPos
++	}
++	for _, decl := range file.Decls {
++		switch d := decl.(type) {
++		case *ast.FuncDecl:
++			name := inPkgFuncName(d)
++			anchors[name] = declInsertPos(src, fset, d.Pos(), d.Doc)
++			collectFuncLitAnchors(src, fset, d.Body, name, anchors)
++		case *ast.GenDecl:
++			if d.Tok == token.IMPORT {
++				continue
++			}
++			collectFuncLitAnchors(src, fset, d, "init", anchors)
++		}
++	}
++	return anchors, topPos
++}
++
++func topInsertPos(src string, fset *token.FileSet, file *ast.File) int {
++	for _, decl := range file.Decls {
++		if gen, ok := decl.(*ast.GenDecl); ok && gen.Tok == token.IMPORT {
++			continue
++		}
++		return lineStart(src, offsetOf(fset, decl.Pos()))
++	}
++	return len(src)
++}
++
++func syntheticInitPos(src string, fset *token.FileSet, file *ast.File) (int, bool) {
++	for _, decl := range file.Decls {
++		switch d := decl.(type) {
++		case *ast.FuncDecl:
++			if d.Name.Name == "init" {
++				return declInsertPos(src, fset, d.Pos(), d.Doc), true
++			}
++		case *ast.GenDecl:
++			if d.Tok != token.IMPORT {
++				return declInsertPos(src, fset, d.Pos(), d.Doc), true
++			}
++		}
++	}
++	return 0, false
++}
++
++func declInsertPos(src string, fset *token.FileSet, pos token.Pos, doc *ast.CommentGroup) int {
++	if doc != nil {
++		pos = doc.Pos()
++	}
++	return lineStart(src, offsetOf(fset, pos))
++}
++
++func collectFuncLitAnchors(src string, fset *token.FileSet, node ast.Node, parent string, anchors map[string]int) {
++	if isNilNode(node) {
++		return
++	}
++	counts := make(map[string]int)
++	var walk func(ast.Node, string)
++	walk = func(root ast.Node, current string) {
++		if isNilNode(root) {
++			return
++		}
++		ast.Inspect(root, func(n ast.Node) bool {
++			lit, ok := n.(*ast.FuncLit)
++			if !ok {
++				return true
++			}
++			counts[current]++
++			name := fmt.Sprintf("%s$%d", current, counts[current])
++			anchors[name] = lineStart(src, offsetOf(fset, lit.Pos()))
++			walk(lit.Body, name)
++			return false
++		})
++	}
++	walk(node, parent)
++}
++
++func isNilNode(node ast.Node) bool {
++	if node == nil {
++		return true
++	}
++	v := reflect.ValueOf(node)
++	switch v.Kind() {
++	case reflect.Chan, reflect.Func, reflect.Interface, reflect.Map, reflect.Pointer, reflect.Slice:
++		return v.IsNil()
++	default:
++		return false
++	}
++}
++
++func inPkgFuncName(fn *ast.FuncDecl) string {
++	name := fn.Name.Name
++	if fn.Recv == nil || len(fn.Recv.List) == 0 {
++		return name
++	}
++	recv := fn.Recv.List[0].Type
++	if star, ok := recv.(*ast.StarExpr); ok {
++		return "(*" + recvTypeName(star.X) + ")." + name
++	}
++	return recvTypeName(recv) + "." + name
++}
++
++func recvTypeName(expr ast.Expr) string {
++	switch v := expr.(type) {
++	case *ast.Ident:
++		return v.Name
++	case *ast.SelectorExpr:
++		return recvTypeName(v.X) + "." + v.Sel.Name
++	case *ast.IndexExpr:
++		return recvTypeName(v.X)
++	case *ast.IndexListExpr:
++		return recvTypeName(v.X)
++	default:
++		return ""
++	}
++}
++
++func parseIR(ir string) irProgram {
++	lines := splitIRLines(ir)
++	var prog irProgram
++	for i := 0; i < len(lines); i++ {
++		line := lines[i]
++		if strings.HasPrefix(line, "define ") {
++			j := i + 1
++			for j < len(lines) {
++				if lines[j] == "}" {
++					j++
++					break
++				}
++				j++
++			}
++			block := append([]string(nil), lines[i:j]...)
++			prog.funcs = append(prog.funcs, irFunction{
++				symbol: extractDefineSymbol(line),
++				lines:  block,
++			})
++			i = j - 1
++			continue
++		}
++		if symbol, ok := extractGlobalSymbol(line); ok {
++			prog.globals = append(prog.globals, irGlobal{symbol: symbol, line: line})
++		}
++	}
++	return prog
++}
++
++func splitIRLines(ir string) []string {
++	ir = strings.ReplaceAll(ir, "\r\n", "\n")
++	ir = strings.TrimSuffix(ir, "\n")
++	if ir == "" {
++		return nil
++	}
++	return strings.Split(ir, "\n")
++}
++
++func extractDefineSymbol(line string) string {
++	if m := defineQuotedRE.FindStringSubmatch(line); m != nil {
++		return m[1]
++	}
++	if m := definePlainRE.FindStringSubmatch(line); m != nil {
++		return m[1]
++	}
++	return ""
++}
++
++func extractGlobalSymbol(line string) (string, bool) {
++	if m := globalQuotedRE.FindStringSubmatch(line); m != nil {
++		return m[1], true
++	}
++	if m := globalPlainRE.FindStringSubmatch(line); m != nil {
++		return m[1], true
++	}
++	return "", false
++}
++
++func buildGlobalChecks(prog irProgram, modulePath string) []string {
++	defs := make(map[string]string, len(prog.globals))
++	order := make([]string, 0, len(prog.globals))
++	for _, g := range prog.globals {
++		if !shouldCheckGlobal(g.symbol) {
++			continue
++		}
++		defs[g.symbol] = g.line
++		order = append(order, g.symbol)
++	}
++	if len(defs) == 0 {
++		return nil
++	}
++	needed := make(map[string]bool)
++	for _, fn := range prog.funcs {
++		if shouldSkipFunctionCheck(fn.symbol) {
++			continue
++		}
++		for _, line := range fn.lines[1:] {
++			for _, ref := range collectRefs(line) {
++				if _, ok := defs[ref]; ok {
++					needed[ref] = true
++				}
++			}
++		}
++	}
++	var lines []string
++	for _, symbol := range order {
++		if !needed[symbol] {
++			continue
++		}
++		lines = append(lines, "// CHECK-LINE: "+generalizeIRLine(defs[symbol], modulePath))
++	}
++	return lines
++}
++
++func buildFunctionChecks(fn irFunction, modulePath string) []string {
++	if len(fn.lines) == 0 {
++		return nil
++	}
++	lines := make([]string, 0, len(fn.lines))
++	lines = append(lines, "// CHECK-LABEL: "+generalizeDefineLine(fn.lines[0], modulePath))
++	for _, line := range fn.lines[1:] {
++		if strings.TrimSpace(line) == "" {
++			lines = append(lines, "// CHECK-EMPTY:")
++			continue
++		}
++		lines = append(lines, "// CHECK-NEXT: "+generalizeIRLine(line, modulePath))
++	}
++	return lines
++}
++
++func generalizeDefineLine(line, modulePath string) string {
++	line = scrubIRLine(line)
++	if idx := strings.LastIndex(line, " {"); idx >= 0 {
++		head := attrGroupTailRE.ReplaceAllString(line[:idx], "")
++		line = head + line[idx:]
++	}
++	return generalizeModulePath(line, modulePath)
++}
++
++func generalizeIRLine(line, modulePath string) string {
++	return generalizeModulePath(scrubIRLine(line), modulePath)
++}
++
++func scrubIRLine(line string) string {
++	line = debugMetaRE.ReplaceAllString(line, "")
++	return strings.TrimRight(line, " \t")
++}
++
++func generalizeModulePath(line, modulePath string) string {
++	if modulePath == "" {
++		return line
++	}
++	return strings.ReplaceAll(line, modulePath, "{{.*}}")
++}
++
++func shouldCheckGlobal(symbol string) bool {
++	return numericNameRE.MatchString(symbol)
++}
++
++func collectRefs(line string) []string {
++	matches := globalRefRE.FindAllStringSubmatch(line, -1)
++	if len(matches) == 0 {
++		return nil
++	}
++	refs := make([]string, 0, len(matches))
++	for _, m := range matches {
++		if m[1] != "" {
++			refs = append(refs, m[1])
++			continue
++		}
++		if m[2] != "" {
++			refs = append(refs, m[2])
++		}
++	}
++	return refs
++}
++
++func shouldSkipFunctionCheck(symbol string) bool {
++	base := strings.TrimPrefix(symbol, "__llgo_stub.")
++	return strings.HasSuffix(base, "/runtime/internal/runtime.memequal32") ||
++		strings.HasSuffix(base, "/runtime/internal/runtime.memequalptr") ||
++		strings.HasSuffix(base, "/runtime/internal/runtime.strequal")
++}
++
++func trimPkgPrefix(symbol, pkgPath string) (string, bool) {
++	prefix := pkgPath + "."
++	if strings.HasPrefix(symbol, prefix) {
++		return strings.TrimPrefix(symbol, prefix), true
++	}
++	return "", false
++}
++
++func applyInjections(src string, injections map[int][]string) string {
++	if len(injections) == 0 {
++		return src
++	}
++	offsets := make([]int, 0, len(injections))
++	for offset := range injections {
++		offsets = append(offsets, offset)
++	}
++	sort.Sort(sort.Reverse(sort.IntSlice(offsets)))
++	out := src
++	for _, offset := range offsets {
++		block := strings.Join(injections[offset], "")
++		out = out[:offset] + block + out[offset:]
++	}
++	return out
++}
++
++func formatDirectiveBlock(indent string, lines []string) string {
++	var b strings.Builder
++	for _, line := range lines {
++		b.WriteString(indent)
++		b.WriteString(line)
++		b.WriteByte('\n')
++	}
++	b.WriteByte('\n')
++	return b.String()
++}
++
++func stripCheckDirectives(src string) string {
++	src = strings.ReplaceAll(src, "\r\n", "\n")
++	lines := strings.SplitAfter(src, "\n")
++	if len(lines) == 0 {
++		return src
++	}
++	out := make([]string, 0, len(lines))
++	for _, line := range lines {
++		trimmed := strings.TrimRight(line, "\n")
++		if checkLineRE.MatchString(trimmed) {
++			continue
++		}
++		out = append(out, line)
++	}
++	return strings.Join(out, "")
++}
++
++func lineStart(src string, offset int) int {
++	if offset < 0 {
++		return 0
++	}
++	if offset > len(src) {
++		return len(src)
++	}
++	for offset > 0 && src[offset-1] != '\n' {
++		offset--
++	}
++	return offset
++}
++
++func indentAt(src string, offset int) string {
++	if offset >= len(src) {
++		return ""
++	}
++	start := lineStart(src, offset)
++	end := start
++	for end < len(src) && (src[end] == ' ' || src[end] == '\t') {
++		end++
++	}
++	return src[start:end]
++}
++
++func offsetOf(fset *token.FileSet, pos token.Pos) int {
++	return fset.PositionFor(pos, false).Offset
++}
++
++func findMarkedSourceFile(dir string) (string, bool, error) {
++	entries, err := os.ReadDir(dir)
++	if err != nil {
++		return "", false, err
++	}
++	var marked string
++	for _, entry := range entries {
++		if entry.IsDir() {
++			continue
++		}
++		name := entry.Name()
++		if !isSourceSpecFile(name) {
++			continue
++		}
++		path := filepath.Join(dir, name)
++		ok, err := hasLITTESTMarker(path)
++		if err != nil {
++			return "", false, err
++		}
++		if !ok {
++			continue
++		}
++		if marked != "" {
++			return "", false, fmt.Errorf("%s: multiple // LITTEST sources found: %s, %s", dir, filepath.Base(marked), name)
++		}
++		marked = path
++	}
++	if marked == "" {
++		return "", false, nil
++	}
++	return marked, true, nil
++}
++
++func hasLITTESTMarker(path string) (bool, error) {
++	f, err := os.Open(path)
++	if err != nil {
++		return false, err
++	}
++	defer f.Close()
++
++	scanner := bufio.NewScanner(f)
++	if !scanner.Scan() {
++		return false, scanner.Err()
++	}
++	line := strings.TrimSpace(scanner.Text())
++	if !strings.HasPrefix(line, "//") {
++		return false, nil
++	}
++	return strings.TrimSpace(strings.TrimPrefix(line, "//")) == littestMarker, nil
++}
++
++func isSourceSpecFile(name string) bool {
++	return filepath.Ext(name) == ".go" && !strings.HasSuffix(name, "_test.go")
++}
+Index: cl/_testrt/litdemo/in.go
+IDEA additional info:
+Subsystem: com.intellij.openapi.diff.impl.patch.CharsetEP
+<+>UTF-8
+===================================================================
+diff --git a/cl/_testrt/litdemo/in.go b/cl/_testrt/litdemo/in.go
+new file mode 100644
+--- /dev/null	(date 1776433961750)
++++ b/cl/_testrt/litdemo/in.go	(date 1776433961750)
+@@ -0,0 +1,51 @@
++// LITTEST
++package main
++
++var seed = 40
++
++// CHECK-LABEL: define i64 @"{{.*}}/cl/_testrt/litdemo.add"(i64 %0, i64 %1) {
++// CHECK-NEXT: _llgo_0:
++// CHECK-NEXT:   %2 = add i64 %0, %1
++// CHECK-NEXT:   ret i64 %2
++// CHECK-NEXT: }
++
++// CHECK-LABEL: define void @"{{.*}}/cl/_testrt/litdemo.init"() {
++// CHECK-NEXT: _llgo_0:
++// CHECK-NEXT:   %0 = load i1, ptr @"{{.*}}/cl/_testrt/litdemo.init$guard", align 1
++// CHECK-NEXT:   br i1 %0, label %_llgo_2, label %_llgo_1
++// CHECK-EMPTY:
++// CHECK-NEXT: _llgo_1:                                          ; preds = %_llgo_0
++// CHECK-NEXT:   store i1 true, ptr @"{{.*}}/cl/_testrt/litdemo.init$guard", align 1
++// CHECK-NEXT:   store i64 40, ptr @"{{.*}}/cl/_testrt/litdemo.seed", align 4
++// CHECK-NEXT:   br label %_llgo_2
++// CHECK-EMPTY:
++// CHECK-NEXT: _llgo_2:                                          ; preds = %_llgo_1, %_llgo_0
++// CHECK-NEXT:   ret void
++// CHECK-NEXT: }
++
++func add(x, y int) int {
++	return x + y
++}
++
++// CHECK-LABEL: define void @"{{.*}}/cl/_testrt/litdemo.main"() {
++// CHECK-NEXT: _llgo_0:
++// CHECK-NEXT:   %0 = load i64, ptr @"{{.*}}/cl/_testrt/litdemo.seed", align 4
++// CHECK-NEXT:   %1 = call i64 @"{{.*}}/cl/_testrt/litdemo.main$1"(i64 %0)
++// CHECK-NEXT:   call void @"{{.*}}/runtime/internal/runtime.PrintInt"(i64 %1)
++// CHECK-NEXT:   call void @"{{.*}}/runtime/internal/runtime.PrintByte"(i8 10)
++// CHECK-NEXT:   ret void
++// CHECK-NEXT: }
++
++func main() {
++
++	// CHECK-LABEL: define i64 @"{{.*}}/cl/_testrt/litdemo.main$1"(i64 %0) {
++	// CHECK-NEXT: _llgo_0:
++	// CHECK-NEXT:   %1 = call i64 @"{{.*}}/cl/_testrt/litdemo.add"(i64 %0, i64 2)
++	// CHECK-NEXT:   ret i64 %1
++	// CHECK-NEXT: }
++
++	plusTwo := func(v int) int {
++		return add(v, 2)
++	}
++	println(plusTwo(seed))
++}

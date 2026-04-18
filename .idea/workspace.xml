@@ -1,0 +1,479 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="AutoImportSettings">
+    <option name="autoReloadType" value="ALL" />
+  </component>
+  <component name="ChangeListManager">
+    <list default="true" id="ab427db9-1779-45ce-889f-f3561f81d908" name="更改" comment="temp update&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;">
+      <change afterPath="$PROJECT_DIR$/internal/build/llvm_emit_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testdata/print/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testdata/print/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testgo/cursor/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testgo/cursor/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testgo/reader/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testgo/reader/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testgo/reflect/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testgo/reflect/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testgo/reflectmk/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testgo/reflectmk/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testgo/tprecur/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testgo/tprecur/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testgo/tptypes/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testgo/tptypes/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/builtin/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/builtin/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/len/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/len/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/makemap/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/makemap/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/map/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/map/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/methodthunk/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/methodthunk/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/named/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/named/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/qsort/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/qsort/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/qsortfn/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/qsortfn/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/sum/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/sum/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/tpabi/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/tpabi/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/tpfunc/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/tpfunc/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/tpmap/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/tpmap/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/tpunsafe/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/tpunsafe/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/typed/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/typed/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/_testrt/unsafe/out.ll" beforeDir="false" afterPath="$PROJECT_DIR$/cl/_testrt/unsafe/out.ll" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/cl/cltest/cltest.go" beforeDir="false" afterPath="$PROJECT_DIR$/cl/cltest/cltest.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/build/build.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/build/build.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/cabi/cabi.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/cabi/cabi.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/internal/llgen/llgenf.go" beforeDir="false" afterPath="$PROJECT_DIR$/internal/llgen/llgenf.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ssa/package.go" beforeDir="false" afterPath="$PROJECT_DIR$/ssa/package.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ssa/ssa_test.go" beforeDir="false" afterPath="$PROJECT_DIR$/ssa/ssa_test.go" afterDir="false" />
+      <change beforePath="$PROJECT_DIR$/ssa/target.go" beforeDir="false" afterPath="$PROJECT_DIR$/ssa/target.go" afterDir="false" />
+    </list>
+    <option name="SHOW_DIALOG" value="false" />
+    <option name="HIGHLIGHT_CONFLICTS" value="true" />
+    <option name="HIGHLIGHT_NON_ACTIVE_CHANGELIST" value="false" />
+    <option name="LAST_RESOLUTION" value="IGNORE" />
+  </component>
+  <component name="EmbeddingIndexingInfo">
+    <option name="cachedIndexableFilesCount" value="7700" />
+  </component>
+  <component name="FileTemplateManagerImpl">
+    <option name="RECENT_TEMPLATES">
+      <list>
+        <option value="Go File" />
+      </list>
+    </option>
+  </component>
+  <component name="GOROOT" url="file://$PROJECT_DIR$/../../../../tools/go1.24.5.linux-amd64/go" />
+  <component name="Git.Rebase.Settings">
+    <option name="NEW_BASE" value="xgo/main" />
+  </component>
+  <component name="Git.Settings">
+    <option name="RECENT_BRANCH_BY_REPOSITORY">
+      <map>
+        <entry key="$PROJECT_DIR$" value="main-sourcecheck-0417" />
+      </map>
+    </option>
+    <option name="RECENT_GIT_ROOT_PATH" value="$PROJECT_DIR$" />
+    <option name="RESET_MODE" value="SOFT" />
+    <option name="SIGN_OFF_COMMIT" value="true" />
+    <option name="UPDATE_TYPE" value="REBASE" />
+  </component>
+  <component name="GitHubPullRequestSearchHistory"><![CDATA[{
+  "history": [
+    {
+      "state": "OPEN"
+    },
+    {
+      "searchQuery": "1827"
+    }
+  ],
+  "lastFilter": {
+    "searchQuery": "1827"
+  }
+}]]></component>
+  <component name="GitHubPullRequestState">{
+  &quot;prStates&quot;: [
+    {
+      &quot;id&quot;: {
+        &quot;id&quot;: &quot;PR_kwDOK33SMs69f6lW&quot;,
+        &quot;number&quot;: 1568
+      },
+      &quot;lastSeen&quot;: 1770042246411
+    },
+    {
+      &quot;id&quot;: {
+        &quot;id&quot;: &quot;PR_kwDOK33SMs7JDOad&quot;,
+        &quot;number&quot;: 1694
+      },
+      &quot;lastSeen&quot;: 1773058534844
+    },
+    {
+      &quot;id&quot;: {
+        &quot;id&quot;: &quot;PR_kwDOK33SMs7JPeQY&quot;,
+        &quot;number&quot;: 1697
+      },
+      &quot;lastSeen&quot;: 1773236599611
+    }
+  ]
+}</component>
+  <component name="GitRewordedCommitMessages">
+    <option name="commitMessagesMapping">
+      <RewordedCommitMessageMapping>
+        <option name="originalMessage" value="build: emit LLVM objects without clang IR compile" />
+        <option name="rewordedMessage" value="cabi: erase replaced call instructions&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+      </RewordedCommitMessageMapping>
+    </option>
+    <option name="currentCommit" value="1" />
+    <option name="onto" value="9fa934f0a52da0f54233d7e6d3a47012d76634fc" />
+  </component>
+  <component name="GithubPullRequestsUISettings">{
+  &quot;selectedUrlAndAccountId&quot;: {
+    &quot;url&quot;: &quot;https://github.com/goplus/llgo.git&quot;,
+    &quot;accountId&quot;: &quot;eefc9441-6bcf-4d4b-89c6-86b891898ee9&quot;
+  }
+}</component>
+  <component name="HighlightingSettingsPerFile">
+    <setting file="file://$USER_HOME$/go/pkg/mod/github.com/goplus/llvm@v0.8.5/ir.go" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/../../../../tools/go1.24.5.linux-amd64/go/src/reflect/type.go" root0="SKIP_INSPECTION" />
+    <setting file="file://$PROJECT_DIR$/../../../../tools/go1.24.5.linux-amd64/go/src/sync/map.go" root0="SKIP_INSPECTION" />
+  </component>
+  <component name="McpProjectServerCommands">
+    <commands />
+    <urls />
+  </component>
+  <component name="ProblemsViewState">
+    <option name="selectedTabId" value="CurrentFile" />
+  </component>
+  <component name="ProjectColorInfo">{
+  &quot;associatedIndex&quot;: 3
+}</component>
+  <component name="ProjectId" id="2zoEvZbkORJseJbm5m05Pc9ljDU" />
+  <component name="ProjectViewState">
+    <option name="hideEmptyMiddlePackages" value="true" />
+    <option name="showLibraryContents" value="true" />
+  </component>
+  <component name="PropertiesComponent"><![CDATA[{
+  "keyToString": {
+    "DefaultGoTemplateProperty": "Go File",
+    "Go 构建.go build gentests.go.executor": "Run",
+    "Go 构建.go build github.com/goplus/llgo/chore/gentests.executor": "Run",
+    "Go 构建.go build github.com/goplus/llgo/chore/llgen.executor": "Run",
+    "Go 构建.go build github.com/goplus/llgo/ssa.executor": "Run",
+    "Go 测试.crosscompile_test.go.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/cl 中的 TestBasicFunc.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/cl 中的 TestFromTestdata.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/cl 中的 TestFromTestgo.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/cl 中的 TestFromTestpy.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/cl 中的 TestRunFromTestpy.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/cl 中的 TestRunFromTestrt.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/cl 中的 TestVar.executor": "Debug",
+    "Go 测试.github.com/goplus/llgo/internal/build 中的 TestLTOEnabledDefault.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/internal/crosscompile 中的 TestUseCrossCompileSDK/Same_Platform.executor": "Debug",
+    "Go 测试.github.com/goplus/llgo/internal/crosscompile 中的 TestUseLTOFlagsControlledByOption.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/internal/crosscompile 中的 TestUseTargetCodegenFlagsOnlyAddedToLDFlagsWithLTO.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestChangeTypeStructRebuild.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestClosureFuncPtrValue.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestClosureNoCtxValue.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestDeferAtomicInLoopIR.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestDeferInLoopIR.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestJump.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestPointerSize.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestPyFunc.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestSliceNormalizesIndexWidthForNewSlice3.executor": "Run",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestTooManyConditionalDefers.executor": "Debug",
+    "Go 测试.github.com/goplus/llgo/ssa 中的 TestUnsafeString.executor": "Run",
+    "Go 测试.go test cl.executor": "Run",
+    "Go 测试.go test ssa.executor": "Run",
+    "Go 测试.ssa_test.go.executor": "Run",
+    "ModuleVcsDetector.initialDetectionPerformed": "true",
+    "RunOnceActivity.GoLinterPluginOnboarding": "true",
+    "RunOnceActivity.GoLinterPluginOnboardingV2": "true",
+    "RunOnceActivity.GoLinterPluginStorageMigration": "true",
+    "RunOnceActivity.MCP Project settings loaded": "true",
+    "RunOnceActivity.ShowReadmeOnStart": "true",
+    "RunOnceActivity.TerminalTabsStorage.copyFrom.TerminalArrangementManager.252": "true",
+    "RunOnceActivity.git.unshallow": "true",
+    "RunOnceActivity.go.analysis.ui.options.defaults": "true",
+    "RunOnceActivity.go.formatter.settings.were.checked": "true",
+    "RunOnceActivity.go.migrated.go.modules.settings": "true",
+    "RunOnceActivity.go.modules.go.list.on.any.changes.was.set": "true",
+    "RunOnceActivity.typescript.service.memoryLimit.init": "true",
+    "git-widget-placeholder": "native-inmemory-clean",
+    "go.import.settings.migrated": "true",
+    "last_opened_file_path": "/opt/data/00.Code/goplus/llgo/xtool/env/llvm",
+    "node.js.detected.package.eslint": "true",
+    "node.js.selected.package.eslint": "(autodetect)",
+    "nodejs_package_manager_path": "npm",
+    "run.configurations.included.in.services": "true",
+    "settings.editor.selected.configurable": "go.sdk"
+  }
+}]]></component>
+  <component name="RecentsManager">
+    <key name="CopyFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/xtool/env/llvm" />
+      <recent name="$PROJECT_DIR$" />
+    </key>
+    <key name="MoveFile.RECENT_KEYS">
+      <recent name="$PROJECT_DIR$/cl/_testlibgo" />
+      <recent name="$PROJECT_DIR$/cl/_testgo" />
+    </key>
+  </component>
+  <component name="RunDashboard">
+    <option name="configurationTypes">
+      <set>
+        <option value="GoApplicationRunConfiguration" />
+      </set>
+    </option>
+    <option name="hiddenConfigurations">
+      <map>
+        <entry key="GoApplicationRunConfiguration">
+          <value>
+            <set>
+              <option value="go build github.com/goplus/llgo/chore/llgen" />
+            </set>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="RunManager" selected="Go 构建.go build github.com/goplus/llgo/chore/llgen">
+    <configuration name="go build github.com/goplus/llgo/chore/llgen" type="GoApplicationRunConfiguration" factoryName="Go Application" nameIsGenerated="true">
+      <module name="llgo" />
+      <working_directory value="$PROJECT_DIR$" />
+      <parameters value="$PROJECT_DIR$/cl/_testrt/asmfull" />
+      <kind value="PACKAGE" />
+      <package value="github.com/goplus/llgo/chore/llgen" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/chore/llgen/llgen.go" />
+      <method v="2" />
+    </configuration>
+    <configuration name="github.com/goplus/llgo/cl 中的 TestBasicFunc" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="llgo" />
+      <working_directory value="$PROJECT_DIR$/cl" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/goplus/llgo/cl" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestBasicFunc\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="github.com/goplus/llgo/cl 中的 TestVar" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="llgo" />
+      <working_directory value="$PROJECT_DIR$/cl" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/goplus/llgo/cl" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestVar\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="github.com/goplus/llgo/ssa 中的 TestClosureFuncPtrValue" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="llgo" />
+      <working_directory value="$PROJECT_DIR$/ssa" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/goplus/llgo/ssa" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestClosureFuncPtrValue\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="github.com/goplus/llgo/ssa 中的 TestClosureNoCtxValue" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="llgo" />
+      <working_directory value="$PROJECT_DIR$/ssa" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="PACKAGE" />
+      <package value="github.com/goplus/llgo/ssa" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$" />
+      <framework value="gotest" />
+      <pattern value="^\QTestClosureNoCtxValue\E$" />
+      <method v="2" />
+    </configuration>
+    <configuration name="ssa_test.go" type="GoTestRunConfiguration" factoryName="Go Test" temporary="true" nameIsGenerated="true">
+      <module name="llgo" />
+      <working_directory value="$PROJECT_DIR$/ssa" />
+      <root_directory value="$PROJECT_DIR$" />
+      <kind value="FILE" />
+      <directory value="$PROJECT_DIR$" />
+      <filePath value="$PROJECT_DIR$/ssa/ssa_test.go" />
+      <framework value="gotest" />
+      <method v="2" />
+    </configuration>
+    <list>
+      <item itemvalue="Go 构建.go build github.com/goplus/llgo/chore/llgen" />
+      <item itemvalue="Go 测试.github.com/goplus/llgo/cl 中的 TestBasicFunc" />
+      <item itemvalue="Go 测试.github.com/goplus/llgo/cl 中的 TestVar" />
+      <item itemvalue="Go 测试.github.com/goplus/llgo/ssa 中的 TestClosureFuncPtrValue" />
+      <item itemvalue="Go 测试.github.com/goplus/llgo/ssa 中的 TestClosureNoCtxValue" />
+      <item itemvalue="Go 测试.ssa_test.go" />
+    </list>
+    <recent_temporary>
+      <list>
+        <item itemvalue="Go 测试.ssa_test.go" />
+        <item itemvalue="Go 测试.github.com/goplus/llgo/ssa 中的 TestClosureNoCtxValue" />
+        <item itemvalue="Go 测试.github.com/goplus/llgo/ssa 中的 TestClosureFuncPtrValue" />
+        <item itemvalue="Go 测试.github.com/goplus/llgo/cl 中的 TestVar" />
+        <item itemvalue="Go 测试.github.com/goplus/llgo/cl 中的 TestBasicFunc" />
+      </list>
+    </recent_temporary>
+  </component>
+  <component name="SharedIndexes">
+    <attachedChunks>
+      <set>
+        <option value="bundled-gosdk-72a9cf600ed8-dfa3e7267ae0-org.jetbrains.plugins.go.sharedIndexes.bundled-GO-253.32098.60" />
+        <option value="bundled-js-predefined-d6986cc7102b-9b0f141eb926-JavaScript-GO-253.32098.60" />
+      </set>
+    </attachedChunks>
+  </component>
+  <component name="TaskManager">
+    <task active="true" id="Default" summary="默认任务">
+      <changelist id="ab427db9-1779-45ce-889f-f3561f81d908" name="更改" comment="" />
+      <created>1752389257185</created>
+      <option name="number" value="Default" />
+      <option name="presentableId" value="Default" />
+      <updated>1752389257185</updated>
+    </task>
+    <servers />
+  </component>
+  <component name="TypeScriptGeneratedFilesManager">
+    <option name="version" value="3" />
+  </component>
+  <component name="Vcs.Log.Tabs.Properties">
+    <option name="OPEN_GENERIC_TABS">
+      <map>
+        <entry key="aeccb048-24ee-4781-8391-9c7f2edf9d4f" value="TOOL_WINDOW" />
+      </map>
+    </option>
+    <option name="TAB_STATES">
+      <map>
+        <entry key="MAIN">
+          <value>
+            <State>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="HEAD" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+        <entry key="aeccb048-24ee-4781-8391-9c7f2edf9d4f">
+          <value>
+            <State>
+              <option name="CUSTOM_BOOLEAN_PROPERTIES">
+                <map>
+                  <entry key="Show.Git.Branches" value="true" />
+                </map>
+              </option>
+              <option name="FILTERS">
+                <map>
+                  <entry key="branch">
+                    <value>
+                      <list>
+                        <option value="native-inmemory-clean" />
+                      </list>
+                    </value>
+                  </entry>
+                </map>
+              </option>
+            </State>
+          </value>
+        </entry>
+      </map>
+    </option>
+  </component>
+  <component name="VcsManagerConfiguration">
+    <MESSAGE value="fix(cl,ssa): preserve defer/go action semantics for atomic builtins&#10;&#10;Fixes #1686.&#10;&#10;Root cause: atomic builtins were lowered as direct calls in action paths, so defer/go handling was bypassed for these operations. Under complex control flow this could break defer semantics and produce invalid IR instruction ordering (e.g. protobuf/internal/impl).&#10;&#10;What changed:&#10;&#10;- Threaded an explicit call-builder through Builder.Do/Go/Defer.&#10;&#10;- Routed atomic builtin lowering in cl/instr.go through this action-aware path instead of direct emission.&#10;&#10;- Added nil-safe handling in defer/go/logging paths for builtin-style calls.&#10;&#10;- Updated defer runtime lowering helpers accordingly (ssa/eh.go, ssa/expr.go, ssa/goroutine.go).&#10;&#10;Regression coverage:&#10;&#10;- Added cl/_testgo/deferatomic with generated out.ll and expect.txt.&#10;&#10;- Extended runtime-facing defer/go atomic tests in test/defer_test.go.&#10;&#10;- Kept SSA-level defer/eh tests aligned with the new call-builder signatures.&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="fix(cl,ssa,runtime): route sync/atomic builtins through action-aware lowering&#10;&#10;Fixes #1686.&#10;&#10;Atomic intrinsics were previously emitted directly, which bypassed the defer/go lowering path and could break action semantics or instruction ordering under complex control flow.&#10;&#10;This change threads an explicit call builder through Builder.Do/Go/Defer, lets builtin-style operations execute through the same action-aware path as regular calls, and makes the defer/go helpers tolerate builtin-backed calls that do not carry a callable Expr.&#10;&#10;It also switches sync/atomic to the llgo runtime replacement package and exposes CompareAndSwap*/Add* entry points through dedicated llgo intrinsics so those operations can be lowered correctly in normal, defer, and go contexts.&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="llvm20 + fake use for equal" />
+    <MESSAGE value="fulllto with globaldce" />
+    <MESSAGE value="plugin&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="fulllto with globaldce&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="reflect&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="fix path&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="cabi: erase replaced call instructions" />
+    <MESSAGE value="cabi: erase replaced call instructions&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="build: emit LLVM objects directly from modules&#10;&#10;- replace the .ll -&gt; clang -c path for LLGo-generated modules with in-process LLVM object emission&#10;- route translated plan9 asm modules and link-time .ll inputs through the same LLVM emission helper&#10;- map existing clang target/codegen flags onto LLVM target machine and pass pipeline settings&#10;- erase replaced cabi call instructions after rewriting uses to avoid leaving dead instructions behind&#10;&#10;Testing:&#10;- go test ./internal/build -run TestRun&#10;- go test ./ssa -run TestFromTestlibgo/atomic&#10;- go test ./internal/clang" />
+    <MESSAGE value="cmd/build: support clang-style optimization flags&#10;&#10;Keep -O limited to clang flags and build LLDB fixtures with -O0 to preserve stack traces." />
+    <MESSAGE value="cmd/build: support clang-style optimization flags&#10;&#10;Keep -O limited to clang flags and build LLDB fixtures with -O0 to preserve stack traces.&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="temp update" />
+    <MESSAGE value="test: migrate _testdata IR cases to source checks" />
+    <MESSAGE value="test: migrate _testdata IR cases to source checks&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="test: fix _testgo source checks cases reasonable&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="temp Parallel&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="test: migrate _testlibgo/_testlibc IR cases to source checks&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="test: migrate _testpy IR cases to source checks&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="temp" />
+    <MESSAGE value="test: migrate _testpy/_testrt IR cases to source checks&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="temp&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="test: migrate _testpy/_testrt IR cases to source checks part2&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <MESSAGE value="temp update&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+    <option name="LAST_COMMIT_MESSAGE" value="temp update&#10;&#10;Signed-off-by: ZhouGuangyuan &lt;zhouguangyuan.xian@gmail.com&gt;" />
+  </component>
+  <component name="XDebuggerManager">
+    <breakpoint-manager>
+      <breakpoints>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/internal/build/build.go</url>
+          <line>423</line>
+          <option name="timeStamp" value="1" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/internal/crosscompile/crosscompile.go</url>
+          <line>277</line>
+          <option name="timeStamp" value="2" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/cl/compile_test.go</url>
+          <line>275</line>
+          <option name="timeStamp" value="3" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/ssa/eh.go</url>
+          <line>276</line>
+          <option name="timeStamp" value="4" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/ssa/expr.go</url>
+          <line>1222</line>
+          <option name="timeStamp" value="5" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/cl/instr.go</url>
+          <line>692</line>
+          <option name="timeStamp" value="6" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/cl/instr.go</url>
+          <line>714</line>
+          <option name="timeStamp" value="7" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/ssa/ssa_test.go</url>
+          <line>94</line>
+          <option name="timeStamp" value="8" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/cl/import.go</url>
+          <line>647</line>
+          <option name="timeStamp" value="9" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/ssa/eh.go</url>
+          <line>429</line>
+          <option name="timeStamp" value="12" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/ssa/abitype.go</url>
+          <line>489</line>
+          <option name="timeStamp" value="13" />
+        </line-breakpoint>
+        <line-breakpoint enabled="true" type="DlvLineBreakpoint">
+          <url>file://$PROJECT_DIR$/internal/build/build.go</url>
+          <line>1103</line>
+          <option name="timeStamp" value="14" />
+        </line-breakpoint>
+      </breakpoints>
+    </breakpoint-manager>
+  </component>
+</project>

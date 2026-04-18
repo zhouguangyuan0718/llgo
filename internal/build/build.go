@@ -1406,14 +1406,9 @@ func exportObjectInMemory(ctx *context, pkgPath string, exportFile string, pkg l
 
 	configureNativeLLVMCodegen()
 
-	mod, disposeMod, err := cloneModuleForCodegen(pkg.Module())
-	if err != nil {
-		return "", err
-	}
-	defer disposeMod()
-	prepareModuleForCodegen(ctx, mod)
+	prepareModuleForCodegen(ctx, pkg.Module())
 
-	buf, err := ctx.prog.TargetMachine().EmitToMemoryBuffer(mod, gllvm.ObjectFile)
+	buf, err := ctx.prog.TargetMachine().EmitToMemoryBuffer(pkg.Module(), gllvm.ObjectFile)
 	if err != nil {
 		return "", err
 	}

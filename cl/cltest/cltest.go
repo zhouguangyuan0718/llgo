@@ -36,7 +36,6 @@ import (
 	"github.com/goplus/gogen/packages"
 	"github.com/goplus/llgo/cl"
 	"github.com/goplus/llgo/internal/build"
-	"github.com/goplus/llgo/internal/irutil"
 	"github.com/goplus/llgo/internal/littest"
 	"github.com/goplus/llgo/internal/llgen"
 	"github.com/goplus/llgo/internal/mockable"
@@ -191,8 +190,8 @@ func Pkg(t *testing.T, pkgPath, outFile string) {
 			t.Fatal("decodeLinkFile failed:", err)
 		}
 	}
-	expected := string(irutil.NormalizeIRBytes(b))
-	if v := string(irutil.NormalizeIRBytes([]byte(llgen.GenFrom(pkgPath)))); v != expected {
+	expected := string(b)
+	if v := llgen.GenFrom(pkgPath); v != expected {
 		t.Fatalf("\n==> got:\n%s\n==> expected:\n%s\n", v, expected)
 	}
 }
@@ -217,7 +216,7 @@ func testFrom(t *testing.T, pkgDir, sel string) {
 		}
 		return
 	}
-	if test.Diff(t, pkgDir+"/result.txt", irutil.NormalizeIRBytes([]byte(v)), irutil.NormalizeIRBytes(spec.Text)) {
+	if test.Diff(t, pkgDir+"/result.txt", []byte(v), []byte(spec.Text)) {
 		t.Fatal("llgen.GenFrom: unexpected result")
 	}
 }
@@ -496,7 +495,7 @@ func TestCompileEx(t *testing.T, src any, fname, expected string, dbg bool) {
 		t.Fatal("cl.NewPackage failed:", err)
 	}
 
-	if v := string(irutil.NormalizeIRBytes([]byte(ret.String()))); v != string(irutil.NormalizeIRBytes([]byte(expected))) && expected != ";" { // expected == ";" means skipping out.ll
+	if v := ret.String(); v != expected && expected != ";" { // expected == ";" means skipping out.ll
 		t.Fatalf("\n==> got:\n%s\n==> expected:\n%s\n", v, expected)
 	}
 }
