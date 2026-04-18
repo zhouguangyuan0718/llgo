@@ -73,7 +73,7 @@ source_filename = "github.com/goplus/llgo/cl/_testrt/methodthunk"
 define i64 @"github.com/goplus/llgo/cl/_testrt/methodthunk.(*InnerInt).M"(ptr %0) {
 _llgo_0:
   %1 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/methodthunk.InnerInt", ptr %0, i32 0, i32 0
-  %2 = load i64, ptr %1, align 4
+  %2 = load i64, ptr %1, align 8
   ret i64 %2
 }
 

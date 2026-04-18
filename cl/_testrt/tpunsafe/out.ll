@@ -115,7 +115,7 @@ _llgo_6:                                          ; preds = %_llgo_4
 define linkonce void @"github.com/goplus/llgo/cl/_testrt/tpunsafe.(*M[int64]).check"(ptr %0, i64 %1, i64 %2, i64 %3) {
 _llgo_0:
   %4 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpunsafe.M[int64]", ptr %0, i32 0, i32 2
-  %5 = load %"github.com/goplus/llgo/cl/_testrt/tpunsafe.N[int64]", ptr %4, align 4
+  %5 = load %"github.com/goplus/llgo/cl/_testrt/tpunsafe.N[int64]", ptr %4, align 8
   %6 = icmp ne i64 8, %1
   br i1 %6, label %_llgo_1, label %_llgo_2
 
@@ -136,7 +136,7 @@ _llgo_1:                                          ; preds = %_llgo_0
 
 _llgo_2:                                          ; preds = %_llgo_0
   %9 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpunsafe.M[int64]", ptr %0, i32 0, i32 2
-  %10 = load %"github.com/goplus/llgo/cl/_testrt/tpunsafe.N[int64]", ptr %9, align 4
+  %10 = load %"github.com/goplus/llgo/cl/_testrt/tpunsafe.N[int64]", ptr %9, align 8
   %11 = icmp ne i64 16, %2
   br i1 %11, label %_llgo_3, label %_llgo_4
 
@@ -158,7 +158,7 @@ _llgo_3:                                          ; preds = %_llgo_2
 _llgo_4:                                          ; preds = %_llgo_2
   %14 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpunsafe.M[int64]", ptr %0, i32 0, i32 2
   %15 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpunsafe.N[int64]", ptr %14, i32 0, i32 1
-  %16 = load i64, ptr %15, align 4
+  %16 = load i64, ptr %15, align 8
   %17 = icmp ne i64 8, %3
   br i1 %17, label %_llgo_5, label %_llgo_6
 

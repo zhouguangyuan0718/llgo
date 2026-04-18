@@ -90,11 +90,11 @@ _llgo_5:                                          ; preds = %_llgo_4, %_llgo_3
   call void @llvm.memset(ptr %17, i8 0, i64 16, i1 false)
   %18 = getelementptr inbounds i64, ptr %17, i64 0
   %19 = getelementptr inbounds i64, ptr %17, i64 1
-  store i64 1, ptr %18, align 4
-  store i64 2, ptr %19, align 4
-  %20 = load [2 x i64], ptr %17, align 4
+  store i64 1, ptr %18, align 8
+  store i64 2, ptr %19, align 8
+  %20 = load [2 x i64], ptr %17, align 8
   %21 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocU"(i64 16)
-  store [2 x i64] %20, ptr %21, align 4
+  store [2 x i64] %20, ptr %21, align 8
   %22 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.eface" { ptr @"_llgo_github.com/goplus/llgo/cl/_testrt/typed.A", ptr undef }, ptr %21, 1
   %23 = alloca [2 x i64], align 8
   call void @llvm.memset(ptr %23, i8 0, i64 16, i1 false)
@@ -104,7 +104,7 @@ _llgo_5:                                          ; preds = %_llgo_4, %_llgo_3
 
 _llgo_6:                                          ; preds = %_llgo_5
   %26 = extractvalue %"github.com/goplus/llgo/runtime/internal/runtime.eface" %22, 1
-  %27 = load [2 x i64], ptr %26, align 4
+  %27 = load [2 x i64], ptr %26, align 8
   %28 = insertvalue { [2 x i64], i1 } undef, [2 x i64] %27, 0
   %29 = insertvalue { [2 x i64], i1 } %28, i1 true, 1
   br label %_llgo_8
@@ -115,12 +115,12 @@ _llgo_7:                                          ; preds = %_llgo_5
 _llgo_8:                                          ; preds = %_llgo_7, %_llgo_6
   %30 = phi { [2 x i64], i1 } [ %29, %_llgo_6 ], [ zeroinitializer, %_llgo_7 ]
   %31 = extractvalue { [2 x i64], i1 } %30, 0
-  store [2 x i64] %31, ptr %23, align 4
+  store [2 x i64] %31, ptr %23, align 8
   %32 = extractvalue { [2 x i64], i1 } %30, 1
   %33 = getelementptr inbounds i64, ptr %23, i64 0
-  %34 = load i64, ptr %33, align 4
+  %34 = load i64, ptr %33, align 8
   %35 = getelementptr inbounds i64, ptr %23, i64 1
-  %36 = load i64, ptr %35, align 4
+  %36 = load i64, ptr %35, align 8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %34)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 32)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %36)

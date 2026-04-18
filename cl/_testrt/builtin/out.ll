@@ -25,7 +25,7 @@ source_filename = "github.com/goplus/llgo/cl/_testrt/builtin"
 define double @"github.com/goplus/llgo/cl/_testrt/builtin.Float64frombits"(i64 %0) {
 _llgo_0:
   %1 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 8)
-  store i64 %0, ptr %1, align 4
+  store i64 %0, ptr %1, align 8
   %2 = load double, ptr %1, align 8
   ret double %2
 }
@@ -71,9 +71,9 @@ _llgo_0:
 
 _llgo_1:                                          ; preds = %_llgo_0
   store i1 true, ptr @"github.com/goplus/llgo/cl/_testrt/builtin.init$guard", align 1
-  store i64 9223372036854775807, ptr @"github.com/goplus/llgo/cl/_testrt/builtin.a", align 4
-  store i64 -9223372036854775808, ptr @"github.com/goplus/llgo/cl/_testrt/builtin.b", align 4
-  store i64 -1, ptr @"github.com/goplus/llgo/cl/_testrt/builtin.n", align 4
+  store i64 9223372036854775807, ptr @"github.com/goplus/llgo/cl/_testrt/builtin.a", align 8
+  store i64 -9223372036854775808, ptr @"github.com/goplus/llgo/cl/_testrt/builtin.b", align 8
+  store i64 -1, ptr @"github.com/goplus/llgo/cl/_testrt/builtin.n", align 8
   br label %_llgo_2
 
 _llgo_2:                                          ; preds = %_llgo_1, %_llgo_0
@@ -84,13 +84,13 @@ define void @"github.com/goplus/llgo/cl/_testrt/builtin.main"() {
 _llgo_0:
   %0 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 32)
   %1 = getelementptr inbounds i64, ptr %0, i64 0
-  store i64 1, ptr %1, align 4
+  store i64 1, ptr %1, align 8
   %2 = getelementptr inbounds i64, ptr %0, i64 1
-  store i64 2, ptr %2, align 4
+  store i64 2, ptr %2, align 8
   %3 = getelementptr inbounds i64, ptr %0, i64 2
-  store i64 3, ptr %3, align 4
+  store i64 3, ptr %3, align 8
   %4 = getelementptr inbounds i64, ptr %0, i64 3
-  store i64 4, ptr %4, align 4
+  store i64 4, ptr %4, align 8
   %5 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" undef, ptr %0, 0
   %6 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %5, i64 4, 1
   %7 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %6, i64 4, 2
@@ -99,10 +99,10 @@ _llgo_0:
   %10 = getelementptr inbounds i64, ptr %8, i64 1
   %11 = getelementptr inbounds i64, ptr %8, i64 2
   %12 = getelementptr inbounds i64, ptr %8, i64 3
-  store i64 1, ptr %9, align 4
-  store i64 2, ptr %10, align 4
-  store i64 3, ptr %11, align 4
-  store i64 4, ptr %12, align 4
+  store i64 1, ptr %9, align 8
+  store i64 2, ptr %10, align 8
+  store i64 3, ptr %11, align 8
+  store i64 4, ptr %12, align 8
   %13 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 10)
   %14 = call %"github.com/goplus/llgo/runtime/internal/runtime.Slice" @"github.com/goplus/llgo/runtime/internal/runtime.NewSlice3"(ptr %13, i64 1, i64 10, i64 0, i64 4, i64 10)
   %15 = extractvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %7, 1
@@ -131,13 +131,13 @@ _llgo_0:
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
   %19 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 32)
   %20 = getelementptr inbounds i64, ptr %19, i64 0
-  store i64 1, ptr %20, align 4
+  store i64 1, ptr %20, align 8
   %21 = getelementptr inbounds i64, ptr %19, i64 1
-  store i64 2, ptr %21, align 4
+  store i64 2, ptr %21, align 8
   %22 = getelementptr inbounds i64, ptr %19, i64 2
-  store i64 3, ptr %22, align 4
+  store i64 3, ptr %22, align 8
   %23 = getelementptr inbounds i64, ptr %19, i64 3
-  store i64 4, ptr %23, align 4
+  store i64 4, ptr %23, align 8
   %24 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" undef, ptr %19, 0
   %25 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %24, i64 4, 1
   %26 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %25, i64 4, 2
@@ -222,13 +222,13 @@ _llgo_0:
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
   %70 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 32)
   %71 = getelementptr inbounds i64, ptr %70, i64 0
-  store i64 5, ptr %71, align 4
+  store i64 5, ptr %71, align 8
   %72 = getelementptr inbounds i64, ptr %70, i64 1
-  store i64 6, ptr %72, align 4
+  store i64 6, ptr %72, align 8
   %73 = getelementptr inbounds i64, ptr %70, i64 2
-  store i64 7, ptr %73, align 4
+  store i64 7, ptr %73, align 8
   %74 = getelementptr inbounds i64, ptr %70, i64 3
-  store i64 8, ptr %74, align 4
+  store i64 8, ptr %74, align 8
   %75 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" undef, ptr %70, 0
   %76 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %75, i64 4, 1
   %77 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %76, i64 4, 2
@@ -299,8 +299,8 @@ _llgo_0:
   %109 = extractvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %88, 0
   %110 = extractvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %88, 1
   %111 = call i64 @"github.com/goplus/llgo/runtime/internal/runtime.SliceCopy"(%"github.com/goplus/llgo/runtime/internal/runtime.Slice" %108, ptr %109, i64 %110, i64 1)
-  store i64 %111, ptr %105, align 4
-  %112 = load i64, ptr %105, align 4
+  store i64 %111, ptr %105, align 8
+  %112 = load i64, ptr %105, align 8
   %113 = getelementptr inbounds i8, ptr %104, i64 0
   %114 = load i8, ptr %113, align 1
   %115 = getelementptr inbounds i8, ptr %104, i64 1
@@ -320,8 +320,8 @@ _llgo_0:
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
   %122 = call %"github.com/goplus/llgo/runtime/internal/runtime.Slice" @"github.com/goplus/llgo/runtime/internal/runtime.NewSlice3"(ptr %104, i64 1, i64 3, i64 1, i64 3, i64 3)
   %123 = call i64 @"github.com/goplus/llgo/runtime/internal/runtime.SliceCopy"(%"github.com/goplus/llgo/runtime/internal/runtime.Slice" %122, ptr @3, i64 4, i64 1)
-  store i64 %123, ptr %105, align 4
-  %124 = load i64, ptr %105, align 4
+  store i64 %123, ptr %105, align 8
+  %124 = load i64, ptr %105, align 8
   %125 = getelementptr inbounds i8, ptr %104, i64 0
   %126 = load i8, ptr %125, align 1
   %127 = getelementptr inbounds i8, ptr %104, i64 1
@@ -461,7 +461,7 @@ define void @"github.com/goplus/llgo/cl/_testrt/builtin.main$3"(ptr %0) {
 _llgo_0:
   %1 = load { ptr }, ptr %0, align 8
   %2 = extractvalue { ptr } %1, 0
-  %3 = load i64, ptr %2, align 4
+  %3 = load i64, ptr %2, align 8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %3)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
   ret void

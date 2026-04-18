@@ -109,7 +109,7 @@ _llgo_2:                                          ; preds = %_llgo_1
   %11 = or i1 %10, %9
   call void @"github.com/goplus/llgo/runtime/internal/runtime.AssertIndexRange"(i1 %11)
   %12 = getelementptr inbounds i64, ptr %7, i64 %4
-  store i64 %6, ptr %12, align 4
+  store i64 %6, ptr %12, align 8
   br label %_llgo_1
 
 _llgo_3:                                          ; preds = %_llgo_1
@@ -131,7 +131,7 @@ _llgo_5:                                          ; preds = %_llgo_4
   %22 = or i1 %21, %20
   call void @"github.com/goplus/llgo/runtime/internal/runtime.AssertIndexRange"(i1 %22)
   %23 = getelementptr inbounds i64, ptr %18, i64 %16
-  %24 = load i64, ptr %23, align 4
+  %24 = load i64, ptr %23, align 8
   %25 = add i64 %14, %24
   br label %_llgo_4
 

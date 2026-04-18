@@ -177,9 +177,9 @@ func TestLoadSpecSupportsSkipOutLL(t *testing.T) {
 func TestHasMarker(t *testing.T) {
 	dir := t.TempDir()
 
-	ok, err := hasMarker(filepath.Join(dir, "missing.go"))
+	ok, err := HasMarker(filepath.Join(dir, "missing.go"))
 	if err == nil || ok {
-		t.Fatalf("hasMarker(missing) = (%v, %v)", ok, err)
+		t.Fatalf("HasMarker(missing) = (%v, %v)", ok, err)
 	}
 
 	empty := filepath.Join(dir, "empty.go")
@@ -187,9 +187,9 @@ func TestHasMarker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ok, err = hasMarker(empty)
+	ok, err = HasMarker(empty)
 	if err != nil || ok {
-		t.Fatalf("hasMarker(empty) = (%v, %v)", ok, err)
+		t.Fatalf("HasMarker(empty) = (%v, %v)", ok, err)
 	}
 
 	plain := filepath.Join(dir, "plain.go")
@@ -197,9 +197,76 @@ func TestHasMarker(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	ok, err = hasMarker(plain)
+	ok, err = HasMarker(plain)
 	if err != nil || ok {
-		t.Fatalf("hasMarker(plain) = (%v, %v)", ok, err)
+		t.Fatalf("HasMarker(plain) = (%v, %v)", ok, err)
+	}
+}
+
+func TestFindMarkedSourceFile(t *testing.T) {
+	dir := t.TempDir()
+	err := os.WriteFile(filepath.Join(dir, "in.go"), []byte("// LITTEST\npackage main\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	path, ok, err := FindMarkedSourceFile(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !ok {
+		t.Fatal("FindMarkedSourceFile = not found, want found")
+	}
+	if path != filepath.Join(dir, "in.go") {
+		t.Fatalf("FindMarkedSourceFile path = %q", path)
+	}
+}
+
+func TestFindMarkedSourceFile_IgnoresNonSourceFiles(t *testing.T) {
+	dir := t.TempDir()
+	err := os.WriteFile(filepath.Join(dir, "in_test.go"), []byte("// LITTEST\npackage main\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+	err = os.WriteFile(filepath.Join(dir, "in.txt"), []byte("// LITTEST\n"), 0644)
+	if err != nil {
+		t.Fatal(err)
+	}
+
+	path, ok, err := FindMarkedSourceFile(dir)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if ok || path != "" {
+		t.Fatalf("FindMarkedSourceFile = (%q, %v), want none", path, ok)
+	}
+}
+
+func TestFindMarkedSourceFile_RejectsMultipleMarkedFiles(t *testing.T) {
+	dir := t.TempDir()
+	for _, name := range []string{"a.go", "b.go"} {
+		err := os.WriteFile(filepath.Join(dir, name), []byte("// LITTEST\npackage main\n"), 0644)
+		if err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	_, _, err := FindMarkedSourceFile(dir)
+	if err == nil {
+		t.Fatal("FindMarkedSourceFile succeeded unexpectedly")
+	}
+}
+
+func TestIsSourceSpecFile(t *testing.T) {
+	cases := map[string]bool{
+		"in.go":      true,
+		"in_test.go": false,
+		"in.c":       false,
+	}
+	for name, want := range cases {
+		if got := IsSourceSpecFile(name); got != want {
+			t.Fatalf("IsSourceSpecFile(%q) = %v, want %v", name, got, want)
+		}
 	}
 }
 

@@ -60,11 +60,11 @@ define %"github.com/goplus/llgo/runtime/internal/runtime.String" @"github.com/go
 _llgo_0:
   %1 = alloca %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", align 8
   call void @llvm.memset(ptr %1, i8 0, i64 16, i1 false)
-  store %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point" %0, ptr %1, align 4
+  store %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point" %0, ptr %1, align 8
   %2 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %1, i32 0, i32 0
-  %3 = load i64, ptr %2, align 4
+  %3 = load i64, ptr %2, align 8
   %4 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %1, i32 0, i32 1
-  %5 = load i64, ptr %4, align 4
+  %5 = load i64, ptr %4, align 8
   %6 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 32)
   %7 = getelementptr inbounds %"github.com/goplus/llgo/runtime/internal/runtime.eface", ptr %6, i64 0
   %8 = inttoptr i64 %3 to ptr
@@ -84,15 +84,15 @@ _llgo_0:
 define void @"github.com/goplus/llgo/cl/_testgo/reflectmk.(*Point).Set"(ptr %0, i64 %1, i64 %2) {
 _llgo_0:
   %3 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %0, i32 0, i32 0
-  store i64 %1, ptr %3, align 4
+  store i64 %1, ptr %3, align 8
   %4 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %0, i32 0, i32 1
-  store i64 %2, ptr %4, align 4
+  store i64 %2, ptr %4, align 8
   ret void
 }
 
 define %"github.com/goplus/llgo/runtime/internal/runtime.String" @"github.com/goplus/llgo/cl/_testgo/reflectmk.(*Point).String"(ptr %0) {
 _llgo_0:
-  %1 = load %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %0, align 4
+  %1 = load %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %0, align 8
   %2 = call %"github.com/goplus/llgo/runtime/internal/runtime.String" @"github.com/goplus/llgo/cl/_testgo/reflectmk.Point.String"(%"github.com/goplus/llgo/cl/_testgo/reflectmk.Point" %1)
   ret %"github.com/goplus/llgo/runtime/internal/runtime.String" %2
 }
@@ -453,8 +453,8 @@ _llgo_20:                                         ; preds = %_llgo_21
   %250 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 16)
   %251 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %250, i32 0, i32 0
   %252 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %250, i32 0, i32 1
-  store i64 1, ptr %251, align 4
-  store i64 2, ptr %252, align 4
+  store i64 1, ptr %251, align 8
+  store i64 2, ptr %252, align 8
   %253 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.eface" { ptr @"*_llgo_github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr undef }, ptr %250, 1
   %254 = call %reflect.Value @reflect.ValueOf(%"github.com/goplus/llgo/runtime/internal/runtime.eface" %253)
   %255 = call %reflect.Value @reflect.Value.Method(%reflect.Value %254, i64 1)
@@ -516,8 +516,8 @@ _llgo_0:
   %1 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 16)
   %2 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %1, i32 0, i32 0
   %3 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %1, i32 0, i32 1
-  store i64 1, ptr %2, align 4
-  store i64 2, ptr %3, align 4
+  store i64 1, ptr %2, align 8
+  store i64 2, ptr %3, align 8
   %4 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.eface" { ptr @"*_llgo_github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr undef }, ptr %1, 1
   %5 = call %reflect.Value @reflect.ValueOf(%"github.com/goplus/llgo/runtime/internal/runtime.eface" %4)
   %6 = call %reflect.Value @reflect.Value.Method(%reflect.Value %5, i64 %0)
@@ -549,8 +549,8 @@ _llgo_0:
   %1 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 16)
   %2 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %1, i32 0, i32 0
   %3 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr %1, i32 0, i32 1
-  store i64 1, ptr %2, align 4
-  store i64 2, ptr %3, align 4
+  store i64 1, ptr %2, align 8
+  store i64 2, ptr %3, align 8
   %4 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.eface" { ptr @"*_llgo_github.com/goplus/llgo/cl/_testgo/reflectmk.Point", ptr undef }, ptr %1, 1
   %5 = call %reflect.Value @reflect.ValueOf(%"github.com/goplus/llgo/runtime/internal/runtime.eface" %4)
   %6 = call %reflect.Value @reflect.Value.MethodByName(%reflect.Value %5, %"github.com/goplus/llgo/runtime/internal/runtime.String" %0)

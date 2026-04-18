@@ -89,13 +89,13 @@ _llgo_0:
   %6 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testdata/print.slice", ptr %2, i32 0, i32 0
   store ptr %5, ptr %6, align 8
   %7 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testdata/print.stringStruct", ptr %3, i32 0, i32 1
-  %8 = load i64, ptr %7, align 4
+  %8 = load i64, ptr %7, align 8
   %9 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testdata/print.slice", ptr %2, i32 0, i32 1
-  store i64 %8, ptr %9, align 4
+  store i64 %8, ptr %9, align 8
   %10 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testdata/print.stringStruct", ptr %3, i32 0, i32 1
-  %11 = load i64, ptr %10, align 4
+  %11 = load i64, ptr %10, align 8
   %12 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testdata/print.slice", ptr %2, i32 0, i32 2
-  store i64 %11, ptr %12, align 4
+  store i64 %11, ptr %12, align 8
   %13 = load %"github.com/goplus/llgo/runtime/internal/runtime.Slice", ptr %2, align 8
   ret %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %13
 }
@@ -142,7 +142,7 @@ _llgo_0:
 
 _llgo_1:                                          ; preds = %_llgo_0
   store i1 true, ptr @"github.com/goplus/llgo/cl/_testdata/print.init$guard", align 1
-  store i64 0, ptr @"github.com/goplus/llgo/cl/_testdata/print.minhexdigits", align 4
+  store i64 0, ptr @"github.com/goplus/llgo/cl/_testdata/print.minhexdigits", align 8
   br label %_llgo_2
 
 _llgo_2:                                          ; preds = %_llgo_1, %_llgo_0
@@ -987,7 +987,7 @@ _llgo_4:                                          ; preds = %_llgo_5, %_llgo_1
 
 _llgo_5:                                          ; preds = %_llgo_1
   %27 = sub i64 100, %23
-  %28 = load i64, ptr @"github.com/goplus/llgo/cl/_testdata/print.minhexdigits", align 4
+  %28 = load i64, ptr @"github.com/goplus/llgo/cl/_testdata/print.minhexdigits", align 8
   %29 = icmp sge i64 %27, %28
   br i1 %29, label %_llgo_2, label %_llgo_4
 }

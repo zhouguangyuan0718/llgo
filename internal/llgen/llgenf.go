@@ -23,6 +23,7 @@ import (
 	"strings"
 
 	"github.com/goplus/llgo/internal/build"
+	"github.com/goplus/llgo/internal/irutil"
 )
 
 func GenFrom(fileOrPkg string) string {
@@ -56,7 +57,7 @@ func genFrom(pkgPath string, abiMode build.AbiMode) (build.Package, error) {
 }
 
 func DoFile(fileOrPkg, outFile string) {
-	ret := GenFrom(fileOrPkg)
+	ret := irutil.NormalizeIR(GenFrom(fileOrPkg))
 	err := os.WriteFile(outFile, []byte(ret), 0644)
 	check(err)
 }
@@ -98,7 +99,7 @@ func SmartDoFileEx(pkgPath string, abiMode build.AbiMode) {
 		return // skip to gen
 	}
 
-	if err = os.WriteFile(outFile, []byte(pkg.LPkg.String()), 0644); err != nil {
+	if err = os.WriteFile(outFile, []byte(irutil.NormalizeIR(pkg.LPkg.String())), 0644); err != nil {
 		panic(err)
 	}
 	if false && fname == autgenFile {

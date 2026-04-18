@@ -29,7 +29,7 @@ _llgo_0:
 
 define void @"github.com/goplus/llgo/cl/_testrt/tpfunc.main$1"(ptr %0) {
 _llgo_0:
-  %1 = load i64, ptr %0, align 4
+  %1 = load i64, ptr %0, align 8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %1)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
   ret void
@@ -37,7 +37,7 @@ _llgo_0:
 
 define void @"github.com/goplus/llgo/cl/_testrt/tpfunc.main$2"(ptr %0) {
 _llgo_0:
-  %1 = load i64, ptr %0, align 4
+  %1 = load i64, ptr %0, align 8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %1)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
   ret void
@@ -45,7 +45,7 @@ _llgo_0:
 
 define void @"github.com/goplus/llgo/cl/_testrt/tpfunc.main$3"(ptr %0) {
 _llgo_0:
-  %1 = load i64, ptr %0, align 4
+  %1 = load i64, ptr %0, align 8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %1)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
   ret void

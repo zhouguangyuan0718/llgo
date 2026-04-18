@@ -115,11 +115,11 @@ _llgo_0:
   %6 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpmap.T3[any]", ptr %5, i32 0, i32 0
   %7 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey", ptr %1, i32 0, i32 3
   %8 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey", ptr %1, i32 0, i32 4
-  store i64 0, ptr %2, align 4
-  store i64 0, ptr %4, align 4
+  store i64 0, ptr %2, align 8
+  store i64 0, ptr %4, align 8
   store %"github.com/goplus/llgo/runtime/internal/runtime.eface" { ptr @_llgo_int, ptr null }, ptr %6, align 8
   store ptr null, ptr %7, align 8
-  store i64 0, ptr %8, align 4
+  store i64 0, ptr %8, align 8
   %9 = load %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey", ptr %1, align 8
   %10 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocU"(i64 48)
   store %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey" %9, ptr %10, align 8
@@ -134,11 +134,11 @@ _llgo_0:
   %17 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpmap.T3[any]", ptr %16, i32 0, i32 0
   %18 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey", ptr %12, i32 0, i32 3
   %19 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey", ptr %12, i32 0, i32 4
-  store i64 0, ptr %13, align 4
-  store i64 0, ptr %15, align 4
+  store i64 0, ptr %13, align 8
+  store i64 0, ptr %15, align 8
   store %"github.com/goplus/llgo/runtime/internal/runtime.eface" { ptr @_llgo_int, ptr null }, ptr %17, align 8
   store ptr null, ptr %18, align 8
-  store i64 0, ptr %19, align 4
+  store i64 0, ptr %19, align 8
   %20 = load %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey", ptr %12, align 8
   %21 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocU"(i64 48)
   store %"github.com/goplus/llgo/cl/_testrt/tpmap.cacheKey" %20, ptr %21, align 8

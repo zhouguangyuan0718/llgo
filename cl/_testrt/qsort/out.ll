@@ -25,14 +25,14 @@ _llgo_0:
   %3 = getelementptr inbounds i64, ptr %0, i64 2
   %4 = getelementptr inbounds i64, ptr %0, i64 3
   %5 = getelementptr inbounds i64, ptr %0, i64 4
-  store i64 100, ptr %1, align 4
-  store i64 8, ptr %2, align 4
-  store i64 23, ptr %3, align 4
-  store i64 2, ptr %4, align 4
-  store i64 7, ptr %5, align 4
+  store i64 100, ptr %1, align 8
+  store i64 8, ptr %2, align 8
+  store i64 23, ptr %3, align 8
+  store i64 2, ptr %4, align 8
+  store i64 7, ptr %5, align 8
   %6 = getelementptr inbounds i64, ptr %0, i64 0
   call void @qsort(ptr %6, i64 5, i64 8, ptr @"github.com/goplus/llgo/cl/_testrt/qsort.main$1")
-  %7 = load [5 x i64], ptr %0, align 4
+  %7 = load [5 x i64], ptr %0, align 8
   br label %_llgo_1
 
 _llgo_1:                                          ; preds = %_llgo_2, %_llgo_0
@@ -47,7 +47,7 @@ _llgo_2:                                          ; preds = %_llgo_1
   %13 = or i1 %12, %11
   call void @"github.com/goplus/llgo/runtime/internal/runtime.AssertIndexRange"(i1 %13)
   %14 = getelementptr inbounds i64, ptr %0, i64 %9
-  %15 = load i64, ptr %14, align 4
+  %15 = load i64, ptr %14, align 8
   %16 = call i32 (ptr, ...) @printf(ptr @0, i64 %15)
   br label %_llgo_1
 
@@ -57,8 +57,8 @@ _llgo_3:                                          ; preds = %_llgo_1
 
 define i32 @"github.com/goplus/llgo/cl/_testrt/qsort.main$1"(ptr %0, ptr %1) {
 _llgo_0:
-  %2 = load i64, ptr %0, align 4
-  %3 = load i64, ptr %1, align 4
+  %2 = load i64, ptr %0, align 8
+  %3 = load i64, ptr %1, align 8
   %4 = sub i64 %2, %3
   %5 = trunc i64 %4 to i32
   ret i32 %5

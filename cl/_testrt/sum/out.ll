@@ -23,13 +23,13 @@ define void @"github.com/goplus/llgo/cl/_testrt/sum.main"() {
 _llgo_0:
   %0 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 32)
   %1 = getelementptr inbounds i64, ptr %0, i64 0
-  store i64 1, ptr %1, align 4
+  store i64 1, ptr %1, align 8
   %2 = getelementptr inbounds i64, ptr %0, i64 1
-  store i64 2, ptr %2, align 4
+  store i64 2, ptr %2, align 8
   %3 = getelementptr inbounds i64, ptr %0, i64 2
-  store i64 3, ptr %3, align 4
+  store i64 3, ptr %3, align 8
   %4 = getelementptr inbounds i64, ptr %0, i64 3
-  store i64 4, ptr %4, align 4
+  store i64 4, ptr %4, align 8
   %5 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" undef, ptr %0, 0
   %6 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %5, i64 4, 1
   %7 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %6, i64 4, 2
@@ -58,7 +58,7 @@ _llgo_2:                                          ; preds = %_llgo_1
   %10 = or i1 %9, %8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.AssertIndexRange"(i1 %10)
   %11 = getelementptr inbounds i64, ptr %6, i64 %4
-  %12 = load i64, ptr %11, align 4
+  %12 = load i64, ptr %11, align 8
   %13 = add i64 %2, %12
   br label %_llgo_1
 

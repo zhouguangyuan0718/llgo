@@ -33,6 +33,7 @@ import (
 	"unsafe"
 
 	"github.com/goplus/gogen/packages"
+	"github.com/goplus/llgo/internal/irutil"
 	"github.com/goplus/llvm"
 )
 
@@ -775,7 +776,7 @@ func TestAny(t *testing.T) {
 
 func assertPkg(t *testing.T, p Package, expected string) {
 	t.Helper()
-	if v := p.String(); v != expected {
+	if v := irutil.NormalizeIR(p.String()); v != irutil.NormalizeIR(expected) {
 		t.Fatalf("\n==> got:\n%s\n==> expected:\n%s\n", v, expected)
 	}
 }
@@ -1317,6 +1318,11 @@ func TestTargetMachineAndDataLayout(t *testing.T) {
 		// Test DataLayout() returns the expected data layout string
 		if dl := prog.DataLayout(); dl != tt.dataLayout {
 			t.Fatalf("%s/%s DataLayout mismatch: got %q, want %q", tt.goos, tt.goarch, dl, tt.dataLayout)
+		}
+
+		pkg := prog.NewPackage("foo", "foo/bar")
+		if dl := pkg.Module().DataLayout(); dl != tt.dataLayout {
+			t.Fatalf("%s/%s module DataLayout mismatch: got %q, want %q", tt.goos, tt.goarch, dl, tt.dataLayout)
 		}
 
 		// Test Target().Spec().Triple returns the expected triple

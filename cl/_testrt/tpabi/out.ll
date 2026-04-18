@@ -63,7 +63,7 @@ _llgo_0:
   %1 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %0, i32 0, i32 0
   %2 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %0, i32 0, i32 1
   store %"github.com/goplus/llgo/runtime/internal/runtime.String" { ptr @0, i64 1 }, ptr %1, align 8
-  store i64 1, ptr %2, align 4
+  store i64 1, ptr %2, align 8
   %3 = load %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %0, align 8
   %4 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocU"(i64 24)
   store %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]" %3, ptr %4, align 8
@@ -82,7 +82,7 @@ _llgo_1:                                          ; preds = %_llgo_0
   %12 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %11, i32 0, i32 0
   %13 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %11, i32 0, i32 1
   store %"github.com/goplus/llgo/runtime/internal/runtime.String" { ptr @11, i64 5 }, ptr %12, align 8
-  store i64 100, ptr %13, align 4
+  store i64 100, ptr %13, align 8
   %14 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.NewItab"(ptr @"_llgo_iface$BP0p_lUsEd-IbbtJVukGmgrdQkqzcoYzSiwgUvgFvUs", ptr @"*_llgo_github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]")
   %15 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.iface" undef, ptr %14, 0
   %16 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.iface" %15, ptr %11, 1
@@ -100,10 +100,10 @@ _llgo_1:                                          ; preds = %_llgo_0
   %27 = getelementptr inbounds i64, ptr %25, i64 1
   %28 = getelementptr inbounds i64, ptr %25, i64 2
   %29 = getelementptr inbounds i64, ptr %25, i64 3
-  store i64 1, ptr %26, align 4
-  store i64 2, ptr %27, align 4
-  store i64 3, ptr %28, align 4
-  store i64 4, ptr %29, align 4
+  store i64 1, ptr %26, align 8
+  store i64 2, ptr %27, align 8
+  store i64 3, ptr %28, align 8
+  store i64 4, ptr %29, align 8
   %30 = getelementptr [4 x i64], ptr %25, i64 1
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintPointer"(ptr %30)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 10)
@@ -131,7 +131,7 @@ _llgo_0:
   %2 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %1, i32 0, i32 0
   %3 = load %"github.com/goplus/llgo/runtime/internal/runtime.String", ptr %2, align 8
   %4 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %1, i32 0, i32 1
-  %5 = load i64, ptr %4, align 4
+  %5 = load i64, ptr %4, align 8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintString"(%"github.com/goplus/llgo/runtime/internal/runtime.String" %3)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 32)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %5)
@@ -146,7 +146,7 @@ _llgo_0:
   %1 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %0, i32 0, i32 0
   %2 = load %"github.com/goplus/llgo/runtime/internal/runtime.String", ptr %1, align 8
   %3 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/tpabi.T[string,int]", ptr %0, i32 0, i32 1
-  %4 = load i64, ptr %3, align 4
+  %4 = load i64, ptr %3, align 8
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintString"(%"github.com/goplus/llgo/runtime/internal/runtime.String" %2)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintByte"(i8 32)
   call void @"github.com/goplus/llgo/runtime/internal/runtime.PrintInt"(i64 %4)

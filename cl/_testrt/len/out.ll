@@ -109,17 +109,17 @@ _llgo_0:
   %23 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/len.data", ptr %19, i32 0, i32 2
   %24 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.MakeMap"(ptr @"map[_llgo_int]_llgo_string", i64 1)
   %25 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocU"(i64 8)
-  store i64 1, ptr %25, align 4
+  store i64 1, ptr %25, align 8
   %26 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.MapAssign"(ptr @"map[_llgo_int]_llgo_string", ptr %24, ptr %25)
   store %"github.com/goplus/llgo/runtime/internal/runtime.String" { ptr @16, i64 5 }, ptr %26, align 8
   %27 = getelementptr inbounds %"github.com/goplus/llgo/cl/_testrt/len.data", ptr %19, i32 0, i32 3
   %28 = call ptr @"github.com/goplus/llgo/runtime/internal/runtime.AllocZ"(i64 24)
   %29 = getelementptr inbounds i64, ptr %28, i64 0
-  store i64 1, ptr %29, align 4
+  store i64 1, ptr %29, align 8
   %30 = getelementptr inbounds i64, ptr %28, i64 1
-  store i64 2, ptr %30, align 4
+  store i64 2, ptr %30, align 8
   %31 = getelementptr inbounds i64, ptr %28, i64 2
-  store i64 3, ptr %31, align 4
+  store i64 3, ptr %31, align 8
   %32 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" undef, ptr %28, 0
   %33 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %32, i64 3, 1
   %34 = insertvalue %"github.com/goplus/llgo/runtime/internal/runtime.Slice" %33, i64 3, 2
