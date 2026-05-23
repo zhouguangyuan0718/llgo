@@ -1,0 +1,5 @@
+ok /sched/gomaxprocs:threads
+ok /gc/gogc:percent
+ok /cpu/classes/total:cpu-seconds
+ok /gc/pauses:seconds
+bad 0
