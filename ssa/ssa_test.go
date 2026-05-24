@@ -400,6 +400,30 @@ func TestChangeTypeNamedClosureUsesGoTypeIdentity(t *testing.T) {
 	}
 }
 
+func TestNamedClosureRawCacheCollision(t *testing.T) {
+	prog := NewProgram(nil)
+	tpkg := types.NewPackage("foo/bar", "bar")
+
+	req := types.NewNamed(types.NewTypeName(0, tpkg, "Request", nil), types.NewStruct(nil, nil), nil)
+	resp := types.NewNamed(types.NewTypeName(0, tpkg, "Response", nil), types.NewStruct(nil, nil), nil)
+	params := types.NewTuple(
+		types.NewVar(0, tpkg, "req", types.NewPointer(req)),
+		types.NewVar(0, tpkg, "resp", types.NewPointer(resp)),
+	)
+	routeSig := types.NewSignatureType(nil, nil, nil, params, nil, false)
+	routeFn := types.NewNamed(types.NewTypeName(0, tpkg, "RouteFunction", nil), routeSig, nil)
+
+	rawRouteFn := prog.rawType(routeFn)
+	if rawRouteFn.kind != vkFuncPtr {
+		t.Fatalf("raw named function type kind = %v, want function pointer", rawRouteFn.kind)
+	}
+
+	goRouteFn := prog.Type(routeFn, InGo)
+	if goRouteFn.kind != vkClosure {
+		t.Fatalf("Go named function type reused raw cache entry: kind = %v, want closure", goRouteFn.kind)
+	}
+}
+
 func TestConvertNamedStructValue(t *testing.T) {
 	prog := NewProgram(nil)
 	pkg := prog.NewPackage("bar", "foo/bar")

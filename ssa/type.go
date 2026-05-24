@@ -267,11 +267,43 @@ func typeStringWithPkg(t types.Type) string {
 
 func (p Program) rawType(raw types.Type) Type {
 	if v := p.typs.At(raw); v != nil {
-		return v.(Type)
+		typ := v.(Type)
+		if rawTypeCacheCompatible(typ.raw.Type, raw) {
+			return typ
+		}
 	}
 	ret := p.toType(raw)
 	p.typs.Set(raw, ret)
 	return ret
+}
+
+func rawTypeCacheCompatible(cached, want types.Type) bool {
+	if cached == want {
+		return true
+	}
+	cachedNamed, cachedOK := types.Unalias(cached).(*types.Named)
+	wantNamed, wantOK := types.Unalias(want).(*types.Named)
+	if !cachedOK || !wantOK {
+		return true
+	}
+	if !types.Identical(cachedNamed, wantNamed) {
+		return true
+	}
+	return namedUnderlyingABICompatible(cachedNamed.Underlying(), wantNamed.Underlying())
+}
+
+func namedUnderlyingABICompatible(cached, want types.Type) bool {
+	cachedStruct, cachedIsStruct := cached.(*types.Struct)
+	wantStruct, wantIsStruct := want.(*types.Struct)
+	if cachedIsStruct || wantIsStruct {
+		return cachedIsStruct && wantIsStruct && IsClosure(cachedStruct) == IsClosure(wantStruct)
+	}
+	_, cachedIsSig := cached.(*types.Signature)
+	_, wantIsSig := want.(*types.Signature)
+	if cachedIsSig || wantIsSig {
+		return cachedIsSig && wantIsSig
+	}
+	return true
 }
 
 func (p Program) tyVoidPtr() llvm.Type {

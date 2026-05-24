@@ -167,6 +167,29 @@ func (p goTypes) cvtNamed(t *types.Named) (raw *types.Named, cvt bool) {
 		cvt = t != raw
 		return
 	}
+	named := newNamedSkeleton(t)
+	if sig, ok := t.Underlying().(*types.Signature); ok {
+		p.typs[unsafe.Pointer(t)] = unsafe.Pointer(named)
+		named.SetUnderlying(p.cvtClosure(sig))
+		if typ, ok := Instantiate(named, t); ok {
+			named = typ.(*types.Named)
+		}
+		p.typs[unsafe.Pointer(t)] = unsafe.Pointer(named)
+		return named, true
+	}
+	p.typs[unsafe.Pointer(t)] = unsafe.Pointer(t)
+	if tund, cvt := p.cvtType(t.Underlying()); cvt {
+		named.SetUnderlying(tund)
+		if typ, ok := Instantiate(named, t); ok {
+			named = typ.(*types.Named)
+		}
+		p.typs[unsafe.Pointer(t)] = unsafe.Pointer(named)
+		return named, true
+	}
+	return t, false
+}
+
+func newNamedSkeleton(t *types.Named) *types.Named {
 	n := t.NumMethods()
 	methods := make([]*types.Func, n)
 	for i := 0; i < n; i++ {
@@ -182,16 +205,7 @@ func (p goTypes) cvtNamed(t *types.Named) (raw *types.Named, cvt bool) {
 		}
 		named.SetTypeParams(list)
 	}
-	p.typs[unsafe.Pointer(t)] = unsafe.Pointer(t)
-	if tund, cvt := p.cvtType(t.Underlying()); cvt {
-		named.SetUnderlying(tund)
-		if typ, ok := Instantiate(named, t); ok {
-			named = typ.(*types.Named)
-		}
-		p.typs[unsafe.Pointer(t)] = unsafe.Pointer(named)
-		return named, true
-	}
-	return t, false
+	return named
 }
 
 func Instantiate(orig types.Type, t *types.Named) (types.Type, bool) {
