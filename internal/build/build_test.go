@@ -16,6 +16,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"reflect"
 	"runtime"
 	"slices"
 	"strconv"
@@ -43,6 +44,66 @@ func TestMain(m *testing.M) {
 	cacheRootFunc = old
 	_ = os.RemoveAll(td)
 	os.Exit(code)
+}
+
+func TestConfigCloneDoesNotAliasInput(t *testing.T) {
+	input := &Config{
+		RunArgs:      []string{"run"},
+		GoBuildFlags: []string{"-tags=custom"},
+		Overlay:      map[string][]byte{"input.go": []byte("package input")},
+		GlobalRewrites: map[string]Rewrites{
+			"example.com/p": {"value": "input"},
+			"nil":           nil,
+		},
+	}
+	cloned := input.clone()
+	cloned.RunArgs[0] = "changed"
+	cloned.GoBuildFlags[0] = "-tags=changed"
+	cloned.Overlay["input.go"][0] = 'P'
+	cloned.GlobalRewrites["example.com/p"]["value"] = "changed"
+	cloned.GlobalRewrites["new"] = Rewrites{"value": "new"}
+
+	if got := input.RunArgs[0]; got != "run" {
+		t.Fatalf("input RunArgs changed to %q", got)
+	}
+	if got := input.GoBuildFlags[0]; got != "-tags=custom" {
+		t.Fatalf("input GoBuildFlags changed to %q", got)
+	}
+	if got := string(input.Overlay["input.go"]); got != "package input" {
+		t.Fatalf("input overlay changed to %q", got)
+	}
+	if got := input.GlobalRewrites["example.com/p"]["value"]; got != "input" {
+		t.Fatalf("input rewrite changed to %q", got)
+	}
+	if _, ok := input.GlobalRewrites["new"]; ok {
+		t.Fatal("cloned rewrite map aliases input map")
+	}
+	if rewrites, ok := cloned.GlobalRewrites["nil"]; !ok || rewrites != nil {
+		t.Fatalf("nil rewrite entry was not preserved: %#v", rewrites)
+	}
+	if got := (*Config)(nil).clone(); got != nil {
+		t.Fatalf("nil Config clone = %#v", got)
+	}
+}
+
+func TestDoDoesNotModifyConfigOnValidationError(t *testing.T) {
+	input := &Config{
+		RunArgs: []string{"arg"},
+		GlobalRewrites: map[string]Rewrites{
+			"example.com/p": {"value": "input"},
+		},
+		LinkOptions: LinkOptions{DWARF: DWARFMode(255)},
+	}
+	before := input.clone()
+	if _, err := Do(nil, input); err == nil {
+		t.Fatal("Do() succeeded with invalid DWARF mode")
+	}
+	if !reflect.DeepEqual(input, before) {
+		t.Fatalf("Do() modified input config:\n got: %#v\nwant: %#v", input, before)
+	}
+	if _, err := Do(nil, nil); err == nil {
+		t.Fatal("Do() succeeded with nil config")
+	}
 }
 
 func TestClosePackageMetas(t *testing.T) {
