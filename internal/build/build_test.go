@@ -85,6 +85,41 @@ func TestConfigCloneDoesNotAliasInput(t *testing.T) {
 	}
 }
 
+func TestResolveBuildConfigDefaultsAndValidation(t *testing.T) {
+	resolved, err := resolveBuildConfig(&Config{
+		BuildMode:    BuildModeCArchive,
+		DeadcodeDrop: true,
+		SizeReport:   true,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.DeadcodeDrop {
+		t.Fatal("non-executable build retained dead-code dropping")
+	}
+	if resolved.SizeFormat != "text" || resolved.SizeLevel != "module" {
+		t.Fatalf("size report defaults = %q, %q", resolved.SizeFormat, resolved.SizeLevel)
+	}
+	if _, err := resolveBuildConfig(&Config{SizeReport: true, SizeLevel: "invalid"}); err == nil {
+		t.Fatal("invalid size-reporting level succeeded")
+	}
+	if _, err := resolveBuildConfig(nil); err == nil {
+		t.Fatal("nil build config succeeded")
+	}
+}
+
+func TestNewDefaultConfDoesNotCreateBinDir(t *testing.T) {
+	binDir := filepath.Join(t.TempDir(), "not-created", "bin")
+	t.Setenv("GOBIN", binDir)
+	conf := NewDefaultConf(ModeBuild)
+	if conf.BinPath != binDir {
+		t.Fatalf("BinPath = %q, want %q", conf.BinPath, binDir)
+	}
+	if _, err := os.Stat(binDir); !os.IsNotExist(err) {
+		t.Fatalf("NewDefaultConf created bin directory: %v", err)
+	}
+}
+
 func TestDoDoesNotModifyConfigOnValidationError(t *testing.T) {
 	input := &Config{
 		RunArgs: []string{"arg"},
