@@ -320,10 +320,24 @@ const (
 )
 
 func Do(args []string, conf *Config) ([]Package, error) {
-	if conf == nil {
+	return Build(BuildRequest{Args: args, Config: conf})
+}
+
+// Build executes one build from an explicit request.
+func Build(req BuildRequest) ([]Package, error) {
+	dir := req.Dir
+	if dir == "" {
+		var err error
+		dir, err = os.Getwd()
+		if err != nil {
+			return nil, err
+		}
+	}
+	environ := os.Environ()
+	if req.Config == nil {
 		return nil, errors.New("build config must not be nil")
 	}
-	conf = conf.clone()
+	conf := req.Config.clone()
 	if conf.Goos == "" {
 		conf.Goos = runtime.GOOS
 	}
@@ -380,7 +394,7 @@ func Do(args []string, conf *Config) ([]Package, error) {
 	}
 
 	verbose := conf.Verbose
-	patterns := args
+	patterns := slices.Clone(req.Args)
 	tags := defaultBuildTags(conf.Goarch, conf.Target)
 	if conf.PCLNMode == PCLNExternal {
 		// Select the optional runtime loader as part of the normal package
@@ -402,9 +416,10 @@ func Do(args []string, conf *Config) ([]Package, error) {
 	cfg := &packages.Config{
 		Mode:       loadSyntax | packages.NeedDeps | packages.NeedModule | packages.NeedExportFile,
 		BuildFlags: goBuildFlags,
+		Dir:        dir,
 		Fset:       token.NewFileSet(),
 		Tests:      conf.Mode == ModeTest,
-		Env:        append(slices.Clone(os.Environ()), "GOOS="+conf.Goos, "GOARCH="+conf.Goarch),
+		Env:        withEnv(environ, "GOOS="+conf.Goos, "GOARCH="+conf.Goarch),
 	}
 	if conf.Mode == ModeTest {
 		cfg.Mode |= packages.NeedForTest

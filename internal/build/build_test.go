@@ -106,6 +106,38 @@ func TestDoDoesNotModifyConfigOnValidationError(t *testing.T) {
 	}
 }
 
+func TestBuildRequestUsesExplicitWorkingDirectory(t *testing.T) {
+	dir := t.TempDir()
+	if err := os.WriteFile(filepath.Join(dir, "go.mod"), []byte("module example.com/requestdir\n\ngo 1.24\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(dir, "requestdir.go"), []byte("package requestdir\n\nfunc F() {}\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	conf := NewDefaultConf(ModeGen)
+	t.Setenv(llgoBuildCache, "0")
+	pkgs, err := Build(BuildRequest{
+		Args:   []string{"."},
+		Config: conf,
+		Dir:    dir,
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if len(pkgs) != 1 || pkgs[0].PkgPath != "example.com/requestdir" {
+		t.Fatalf("Build returned packages = %+v, want example.com/requestdir", pkgs)
+	}
+	pkgs[0].LPkg.Prog.Dispose()
+}
+
+func TestWithEnvLastValueWins(t *testing.T) {
+	got := withEnv([]string{"A=old", "B=keep", "malformed", "A=older"}, "A=new", "C=value")
+	want := []string{"B=keep", "A=new", "C=value"}
+	if !slices.Equal(got, want) {
+		t.Fatalf("withEnv = %q, want %q", got, want)
+	}
+}
+
 func TestClosePackageMetas(t *testing.T) {
 	b := meta.NewBuilder()
 	b.Sym("pkg.main")
