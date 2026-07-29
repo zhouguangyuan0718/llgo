@@ -31,6 +31,7 @@ import (
 	"github.com/goplus/llgo/internal/mockable"
 	"github.com/goplus/llgo/internal/packages"
 	llssa "github.com/goplus/llgo/ssa"
+	llvmenv "github.com/goplus/llgo/xtool/env/llvm"
 	"github.com/xgo-dev/llvm"
 )
 
@@ -764,6 +765,64 @@ func TestArchiverAllowsLLGOAROverrideForLTO(t *testing.T) {
 
 	if got := (&context{buildConf: &Config{LTO: lto.Full}}).archiver(); got != "custom-ar" {
 		t.Fatalf("archiver with LLGO_AR = %q, want custom-ar", got)
+	}
+}
+
+func TestContextUsesLLVMToolPaths(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a shell script")
+	}
+
+	binDir := t.TempDir()
+	llvmConfig := filepath.Join(t.TempDir(), "llvm-config")
+	t.Setenv("LLGO_TEST_LLVM_BINDIR", binDir)
+	if err := os.WriteFile(llvmConfig, []byte("#!/bin/sh\nprintf '%s\\n' \"$LLGO_TEST_LLVM_BINDIR\"\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	for _, tool := range []string{"llvm-ar", "llc"} {
+		if err := os.WriteFile(filepath.Join(binDir, tool), []byte("#!/bin/sh\nexit 0\n"), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+
+	llvmEnv := llvmenv.New(llvmConfig)
+	ctx := &context{env: llvmEnv, buildConf: &Config{LTO: lto.Full}}
+	if got, want := ctx.clangBin(), filepath.Join(binDir, "clang"); got != want {
+		t.Fatalf("clangBin() = %q, want %q", got, want)
+	}
+	if got, want := ctx.llvmArBin(), filepath.Join(binDir, "llvm-ar"); got != want {
+		t.Fatalf("llvmArBin() = %q, want %q", got, want)
+	}
+
+	t.Setenv("LLGO_AR", "")
+	t.Setenv("PATH", "")
+	if got, want := ctx.archiver(), filepath.Join(binDir, "llvm-ar"); got != want {
+		t.Fatalf("archiver() = %q, want %q", got, want)
+	}
+	if got, err := ctx.archiveMerger(); err != nil || got != filepath.Join(binDir, "llvm-ar") {
+		t.Fatalf("archiveMerger() = %q, %v, want LLVM toolchain path", got, err)
+	}
+	if err := os.Remove(filepath.Join(binDir, "llvm-ar")); err != nil {
+		t.Fatal(err)
+	}
+	if got, want := ctx.archiver(), filepath.Join(binDir, "llvm-ar"); got != want {
+		t.Fatalf("archiver() with missing tool = %q, want %q", got, want)
+	}
+
+	exportFile := filepath.Join(t.TempDir(), "input.ll")
+	if err := os.WriteFile(exportFile, nil, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if msg, err := llcCheck(llvmEnv, exportFile); err != nil {
+		t.Fatalf("llcCheck() = %q, %v", msg, err)
+	}
+
+	fallback := &context{}
+	if got := fallback.clangBin(); got != "clang" {
+		t.Fatalf("fallback clangBin() = %q, want clang", got)
+	}
+	if got := fallback.llvmArBin(); got != "llvm-ar" {
+		t.Fatalf("fallback llvmArBin() = %q, want llvm-ar", got)
 	}
 }
 

@@ -11,6 +11,7 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"strings"
 	"testing"
 
@@ -94,6 +95,46 @@ func TestCollectCgoSymbolsStripsPackagePrefix(t *testing.T) {
 	}
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("collectCgoSymbols = %#v, want %#v", got, want)
+	}
+}
+
+func TestGenExternDeclsUsesExplicitClang(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a shell script")
+	}
+
+	clang := filepath.Join(t.TempDir(), "clang")
+	script := `#!/bin/sh
+for arg in "$@"; do
+	if [ "$arg" = "-dM" ]; then
+		printf '#define request_macro 1\n'
+		exit 0
+	fi
+done
+printf '%s\n' '{"kind":"TranslationUnitDecl","inner":[{"kind":"FunctionDecl","name":"request_func"}]}'
+`
+	if err := os.WriteFile(clang, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	symbols := map[string]string{
+		"cgo_func":  "request_func",
+		"cgo_macro": "request_macro",
+	}
+	got, err := genExternDeclsByClang(clang, nil, "", nil, symbols, true)
+	if err != nil {
+		t.Fatal(err)
+	}
+	for _, want := range []string{
+		"typeof(request_func)* cgo_func;",
+		"typeof(request_macro) cgo_macro;",
+	} {
+		if !strings.Contains(got, want) {
+			t.Fatalf("generated declarations missing %q:\n%s", want, got)
+		}
+	}
+	if len(symbols) != 0 {
+		t.Fatalf("resolved symbols were not removed: %v", symbols)
 	}
 }
 
