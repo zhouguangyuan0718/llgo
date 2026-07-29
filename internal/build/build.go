@@ -58,6 +58,7 @@ import (
 	"github.com/goplus/llgo/internal/packages"
 	"github.com/goplus/llgo/internal/pclnmap"
 	"github.com/goplus/llgo/internal/pclnpost"
+	"github.com/goplus/llgo/internal/processenv"
 	"github.com/goplus/llgo/internal/typepatch"
 	"github.com/goplus/llgo/ssa/abi"
 	xenv "github.com/goplus/llgo/xtool/env"
@@ -320,10 +321,20 @@ const (
 )
 
 func Do(args []string, conf *Config) ([]Package, error) {
-	if conf == nil {
+	return Build(BuildRequest{Args: args, Config: conf})
+}
+
+// Build executes one build from an explicit request. Omitted process inputs
+// are snapshotted before package loading starts.
+func Build(req BuildRequest) ([]Package, error) {
+	process, err := processenv.Capture(req.Dir, req.Env)
+	if err != nil {
+		return nil, err
+	}
+	if req.Config == nil {
 		return nil, errors.New("build config must not be nil")
 	}
-	conf = conf.clone()
+	conf := req.Config.clone()
 	if conf.Goos == "" {
 		conf.Goos = runtime.GOOS
 	}
@@ -380,7 +391,7 @@ func Do(args []string, conf *Config) ([]Package, error) {
 	}
 
 	verbose := conf.Verbose
-	patterns := args
+	patterns := slices.Clone(req.Args)
 	tags := defaultBuildTags(conf.Goarch, conf.Target)
 	if conf.PCLNMode == PCLNExternal {
 		// Select the optional runtime loader as part of the normal package
@@ -402,9 +413,10 @@ func Do(args []string, conf *Config) ([]Package, error) {
 	cfg := &packages.Config{
 		Mode:       loadSyntax | packages.NeedDeps | packages.NeedModule | packages.NeedExportFile,
 		BuildFlags: goBuildFlags,
+		Dir:        process.Dir,
 		Fset:       token.NewFileSet(),
 		Tests:      conf.Mode == ModeTest,
-		Env:        append(slices.Clone(os.Environ()), "GOOS="+conf.Goos, "GOARCH="+conf.Goarch),
+		Env:        withEnv(process.Env, "GOOS="+conf.Goos, "GOARCH="+conf.Goarch),
 	}
 	if conf.Mode == ModeTest {
 		cfg.Mode |= packages.NeedForTest
