@@ -87,27 +87,42 @@ func New(llvmConfigBin string) *Env {
 // means LLVM executables are assumed to be in PATH.
 func (e *Env) BinDir() string { return e.binDir }
 
+func (e *Env) tool(base string) string {
+	if e.binDir == "" {
+		return base
+	}
+	return filepath.Join(e.binDir, base)
+}
+
+// ClangBin returns the clang executable from this LLVM installation.
+func (e *Env) ClangBin() string { return e.tool("clang") }
+
+// ClangXXBin returns the clang++ executable from this LLVM installation.
+func (e *Env) ClangXXBin() string { return e.tool("clang++") }
+
+// LLVMArBin returns the llvm-ar executable from this LLVM installation.
+func (e *Env) LLVMArBin() string { return e.tool("llvm-ar") }
+
+// LLCBin returns the llc executable from this LLVM installation.
+func (e *Env) LLCBin() string { return e.tool("llc") }
+
 // Clang returns a new [clang.Cmd] instance.
 func (e *Env) Clang() *clang.Cmd {
-	bin := filepath.Join(e.BinDir(), "clang++")
-	return clang.New(bin)
+	return clang.New(e.ClangXXBin())
 }
 
 // Link returns a new [llvmlink.Cmd] instance.
 func (e *Env) Link() *llvmlink.Cmd {
-	bin := filepath.Join(e.BinDir(), "llvm-link")
-	return llvmlink.New(bin)
+	return llvmlink.New(e.tool("llvm-link"))
 }
 
 // Nm returns a new [nm.Cmd] instance.
 func (e *Env) Nm() *nm.Cmd {
-	bin := filepath.Join(e.BinDir(), "llvm-nm")
-	return nm.New(bin)
+	return nm.New(e.tool("llvm-nm"))
 }
 
 func (e *Env) InstallNameTool() *install_name_tool.Cmd {
-	bin := filepath.Join(e.BinDir(), "llvm-install-name-tool")
-	return install_name_tool.New(bin)
+	return install_name_tool.New(e.tool("llvm-install-name-tool"))
 }
 
 // FileCheck returns a command to execute LLVM FileCheck with given arguments.

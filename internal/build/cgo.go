@@ -126,7 +126,7 @@ func buildCgo(ctx *context, pkg *aPackage, files []*ast.File, externs []string, 
 		tmpName := tmpFile.Name()
 		defer os.Remove(tmpName)
 		code := cgoHeader + "\n\n" + preamble.src
-		externDecls, err := genExternDeclsByClang(pkg, code, cflags, cgoSymbols, verbose)
+		externDecls, err := genExternDeclsByClang(ctx.clangBin(), pkg, code, cflags, cgoSymbols, verbose)
 		if err != nil {
 			return nil, nil, fmt.Errorf("failed to generate extern decls: %v", err)
 		}
@@ -178,7 +178,7 @@ type clangASTNode struct {
 	Inner []clangASTNode `json:"inner,omitempty"`
 }
 
-func genExternDeclsByClang(pkg *aPackage, src string, cflags []string, cgoSymbols map[string]string, verbose bool) (string, error) {
+func genExternDeclsByClang(clangBin string, pkg *aPackage, src string, cflags []string, cgoSymbols map[string]string, verbose bool) (string, error) {
 	tmpSrc, err := os.CreateTemp("", "cgo-src-*.c")
 	if err != nil {
 		return "", fmt.Errorf("failed to create temp file: %v", err)
@@ -188,11 +188,11 @@ func genExternDeclsByClang(pkg *aPackage, src string, cflags []string, cgoSymbol
 		return "", fmt.Errorf("failed to write temp file: %v", err)
 	}
 	symbolNames := make(map[string]bool)
-	if err := getFuncNames(tmpSrc.Name(), cflags, symbolNames, verbose); err != nil {
+	if err := getFuncNames(clangBin, tmpSrc.Name(), cflags, symbolNames, verbose); err != nil {
 		return "", fmt.Errorf("failed to get func names: %v", err)
 	}
 	macroNames := make(map[string]bool)
-	if err := getMacroNames(tmpSrc.Name(), cflags, macroNames, verbose); err != nil {
+	if err := getMacroNames(clangBin, tmpSrc.Name(), cflags, macroNames, verbose); err != nil {
 		return "", fmt.Errorf("failed to get macro names: %v", err)
 	}
 
@@ -245,10 +245,10 @@ static void _init_%s() {
 	return b.String(), nil
 }
 
-func getMacroNames(file string, cflags []string, macroNames map[string]bool, verbose bool) error {
+func getMacroNames(clangBin, file string, cflags []string, macroNames map[string]bool, verbose bool) error {
 	args := append([]string{"-dM", "-E"}, cflags...)
 	args = append(args, file)
-	cmd := execCommandVerbose(verbose, "clang", args...)
+	cmd := execCommandVerbose(verbose, clangBin, args...)
 	output, err := cmd.Output()
 	if err != nil {
 		return err
@@ -265,10 +265,10 @@ func getMacroNames(file string, cflags []string, macroNames map[string]bool, ver
 	return nil
 }
 
-func getFuncNames(file string, cflags []string, symbolNames map[string]bool, verbose bool) error {
+func getFuncNames(clangBin, file string, cflags []string, symbolNames map[string]bool, verbose bool) error {
 	args := append([]string{"-Xclang", "-ast-dump=json", "-fsyntax-only"}, cflags...)
 	args = append(args, file)
-	cmd := execCommandVerbose(verbose, "clang", args...)
+	cmd := execCommandVerbose(verbose, clangBin, args...)
 	cmd.Stderr = os.Stderr
 	output, err := cmd.Output()
 	if err != nil {

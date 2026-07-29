@@ -547,7 +547,9 @@ func Do(args []string, conf *Config) ([]Package, error) {
 	altSSAPkgs(progSSA, patches, altPkgs[1:], conf, verbose)
 
 	env := llvm.New("")
-	os.Setenv("PATH", env.BinDir()+":"+os.Getenv("PATH")) // TODO(xsw): check windows
+	if export.CC == "clang++" {
+		export.CC = env.ClangXXBin()
+	}
 
 	output := conf.OutFile != ""
 	ctx := &context{env: env, conf: cfg, progSSA: progSSA, prog: prog, dedup: dedup,
@@ -862,6 +864,20 @@ func (c *context) compiler() *clang.Cmd {
 	cmd := clang.NewCompiler(config)
 	cmd.Verbose = c.shouldPrintCommands(false)
 	return cmd
+}
+
+func (c *context) clangBin() string {
+	if c.env == nil {
+		return "clang"
+	}
+	return c.env.ClangBin()
+}
+
+func (c *context) llvmArBin() string {
+	if c.env == nil {
+		return "llvm-ar"
+	}
+	return c.env.LLVMArBin()
 }
 
 func (c *context) linker() *clang.Cmd {
@@ -1535,9 +1551,11 @@ func (c *context) archiver() string {
 		return ar
 	}
 	if c.buildConf.ltoEnabled() || c.buildConf.Goarch == "wasm" || strings.Contains(c.crossCompile.LLVMTarget, "wasm") {
-		if llvmAr, err := exec.LookPath("llvm-ar"); err == nil {
-			return llvmAr
+		llvmAr := c.llvmArBin()
+		if resolved, err := exec.LookPath(llvmAr); err == nil {
+			return resolved
 		}
+		return llvmAr
 	}
 	return "ar"
 }
@@ -1555,8 +1573,9 @@ func (c *context) archiveMerger() (string, error) {
 			return llvmAr, nil
 		}
 	}
-	if llvmAr, err := exec.LookPath("llvm-ar"); err == nil {
-		return llvmAr, nil
+	llvmAr := c.llvmArBin()
+	if resolved, err := exec.LookPath(llvmAr); err == nil {
+		return resolved, nil
 	}
 	return "", errors.New("llvm-ar is required to create a flat c-archive")
 }
@@ -1956,8 +1975,7 @@ func exportObjectWithClang(ctx *context, pkgPath string, exportFile string, data
 }
 
 func llcCheck(env *llvm.Env, exportFile string) (msg string, err error) {
-	bin := filepath.Join(env.BinDir(), "llc")
-	cmd := exec.Command(bin, "-filetype=null", exportFile)
+	cmd := exec.Command(env.LLCBin(), "-filetype=null", exportFile)
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
 	if err = cmd.Run(); err != nil {
