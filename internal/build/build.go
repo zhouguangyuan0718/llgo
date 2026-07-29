@@ -213,6 +213,34 @@ type Config struct {
 
 type Rewrites map[string]string
 
+// clone returns an independent copy of c for use by a single build. Do
+// resolves defaults and target-specific values on this copy so callers can
+// safely reuse their input configuration after Do returns.
+func (c *Config) clone() *Config {
+	if c == nil {
+		return nil
+	}
+	cloned := *c
+	cloned.RunArgs = slices.Clone(c.RunArgs)
+	cloned.GoBuildFlags = slices.Clone(c.GoBuildFlags)
+	cloned.Overlay = cloneOverlay(c.Overlay)
+	if c.GlobalRewrites != nil {
+		cloned.GlobalRewrites = make(map[string]Rewrites, len(c.GlobalRewrites))
+		for pkgPath, rewrites := range c.GlobalRewrites {
+			if rewrites == nil {
+				cloned.GlobalRewrites[pkgPath] = nil
+				continue
+			}
+			copied := make(Rewrites, len(rewrites))
+			for name, value := range rewrites {
+				copied[name] = value
+			}
+			cloned.GlobalRewrites[pkgPath] = copied
+		}
+	}
+	return &cloned
+}
+
 func NewDefaultConf(mode Mode) *Config {
 	bin := os.Getenv("GOBIN")
 	if bin == "" {
@@ -292,6 +320,10 @@ const (
 )
 
 func Do(args []string, conf *Config) ([]Package, error) {
+	if conf == nil {
+		return nil, errors.New("build config must not be nil")
+	}
+	conf = conf.clone()
 	if conf.Goos == "" {
 		conf.Goos = runtime.GOOS
 	}
