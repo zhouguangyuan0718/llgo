@@ -199,7 +199,7 @@ func TestDoNormalizesLegacyPCLNMode(t *testing.T) {
 				t.Fatalf("Do() modified input config:\n got: %#v\nwant: %#v", conf, before)
 			}
 			conf.LinkOptions.DWARF = DWARFDefault
-			resolved, err := resolveBuildConfig(&conf)
+			resolved, err := resolveBuildConfig(&conf, nil)
 			if err != nil {
 				t.Fatal(err)
 			}

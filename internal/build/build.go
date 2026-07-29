@@ -210,6 +210,8 @@ type Config struct {
 	GlobalRewrites map[string]Rewrites
 	ModuleHook     ModuleHook
 	Overlay        map[string][]byte
+
+	environment []string
 }
 
 type Rewrites map[string]string
@@ -224,6 +226,7 @@ func (c *Config) clone() *Config {
 	cloned := *c
 	cloned.RunArgs = slices.Clone(c.RunArgs)
 	cloned.GoBuildFlags = slices.Clone(c.GoBuildFlags)
+	cloned.environment = slices.Clone(c.environment)
 	cloned.Overlay = cloneOverlay(c.Overlay)
 	if c.GlobalRewrites != nil {
 		cloned.GlobalRewrites = make(map[string]Rewrites, len(c.GlobalRewrites))
@@ -245,11 +248,15 @@ func (c *Config) clone() *Config {
 // resolveBuildConfig validates and fills build-local defaults without
 // modifying the caller's Config. Target-derived GOOS/GOARCH values are
 // resolved later, after crosscompile.Use has selected the toolchain.
-func resolveBuildConfig(input *Config) (*Config, error) {
+func resolveBuildConfig(input *Config, environ []string) (*Config, error) {
 	if input == nil {
 		return nil, errors.New("build config must not be nil")
 	}
 	conf := input.clone()
+	conf.environment = slices.Clone(environ)
+	if environ == nil {
+		conf.environment = os.Environ()
+	}
 	if conf.Goos == "" {
 		conf.Goos = runtime.GOOS
 	}
@@ -372,13 +379,13 @@ func Build(req BuildRequest) ([]Package, error) {
 	if err != nil {
 		return nil, err
 	}
-	conf, err := resolveBuildConfig(req.Config)
+	conf, err := resolveBuildConfig(req.Config, process.Env)
 	if err != nil {
 		return nil, err
 	}
 	// Handle crosscompile configuration first to set correct GOOS/GOARCH
 	forceEspClang := conf.ForceEspClang || conf.Target != ""
-	export, err := crosscompile.Use(conf.Goos, conf.Goarch, conf.Target, IsWasiThreadsEnabled(), forceEspClang, conf.OptLevel, conf.ltoMode(), conf.goGlobalDCEEnabled())
+	export, err := crosscompile.Use(conf.Goos, conf.Goarch, conf.Target, isEnvOnConfig(conf, llgoWasiThreads, true), forceEspClang, conf.OptLevel, conf.ltoMode(), conf.goGlobalDCEEnabled())
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup crosscompile: %w", err)
 	}
@@ -434,7 +441,7 @@ func Build(req BuildRequest) ([]Package, error) {
 	emitDebugInfo := shouldEmitDebugInfo(conf, &export)
 	cl.EnableDebug(emitDebugInfo)
 	cl.EnableDbgSyms(emitDebugInfo)
-	cl.EnableTrace(IsTraceEnabled())
+	cl.EnableTrace(isEnvOnConfig(conf, llgoTrace, false))
 	llssa.Initialize(llssa.InitAll)
 
 	target := &llssa.Target{
@@ -591,7 +598,7 @@ func Build(req BuildRequest) ([]Package, error) {
 		buildMode |= ssa.GlobalDebug
 		cabiOptimize = false
 	}
-	if !IsOptimizeEnabled() {
+	if !isEnvOnConfig(conf, llgoOptimize, true) {
 		buildMode |= ssa.NaiveForm
 	}
 	progSSA := ssa.NewProgram(initial[0].Fset, buildMode)
@@ -2353,11 +2360,26 @@ func defaultEnv(env string, defVal string) string {
 }
 
 func isEnvOn(env string, defVal bool) bool {
-	envVal := strings.ToLower(os.Getenv(env))
+	return parseEnvBool(os.Getenv(env), defVal)
+}
+
+func parseEnvBool(value string, defVal bool) bool {
+	envVal := strings.ToLower(value)
 	if envVal == "" {
 		return defVal
 	}
 	return envVal == "1" || envVal == "true" || envVal == "on"
+}
+
+func isEnvOnConfig(conf *Config, key string, defVal bool) bool {
+	return parseEnvBool(envConfigValue(conf, key), defVal)
+}
+
+func envConfigValue(conf *Config, key string) string {
+	if conf == nil || conf.environment == nil {
+		return os.Getenv(key)
+	}
+	return processenv.Get(conf.environment, key)
 }
 
 // cacheEnabled checks if build cache is enabled.

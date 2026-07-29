@@ -90,7 +90,7 @@ func TestResolveBuildConfigDefaultsAndValidation(t *testing.T) {
 		BuildMode:    BuildModeCArchive,
 		DeadcodeDrop: true,
 		SizeReport:   true,
-	})
+	}, nil)
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -100,11 +100,30 @@ func TestResolveBuildConfigDefaultsAndValidation(t *testing.T) {
 	if resolved.SizeFormat != "text" || resolved.SizeLevel != "module" {
 		t.Fatalf("size report defaults = %q, %q", resolved.SizeFormat, resolved.SizeLevel)
 	}
-	if _, err := resolveBuildConfig(&Config{SizeReport: true, SizeLevel: "invalid"}); err == nil {
+	if _, err := resolveBuildConfig(&Config{SizeReport: true, SizeLevel: "invalid"}, nil); err == nil {
 		t.Fatal("invalid size-reporting level succeeded")
 	}
-	if _, err := resolveBuildConfig(nil); err == nil {
+	if _, err := resolveBuildConfig(nil, nil); err == nil {
 		t.Fatal("nil build config succeeded")
+	}
+}
+
+func TestResolveBuildConfigUsesExplicitEnvironment(t *testing.T) {
+	t.Setenv(llgoFuncInfo, "0")
+	t.Setenv(llgoTrace, "0")
+
+	resolved, err := resolveBuildConfig(&Config{}, []string{
+		llgoFuncInfo + "=1",
+		llgoTrace + "=1",
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if resolved.PCLNMode != PCLNEmbedded {
+		t.Fatalf("PCLNMode = %v, want explicit request environment to enable metadata", resolved.PCLNMode)
+	}
+	if !isEnvOnConfig(resolved, llgoTrace, false) {
+		t.Fatal("trace did not use explicit request environment")
 	}
 }
 
