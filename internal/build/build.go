@@ -724,7 +724,7 @@ func Build(req BuildRequest) ([]Package, error) {
 				if conf.Target == "" {
 					err = runNative(ctx, outFmts.Out, pkg.Dir, pkg.PkgPath, conf, mode)
 				} else if conf.Emulator {
-					err = runInEmulator(ctx.crossCompile.Emulator, envMap, pkg.Dir, pkg.PkgPath, conf, mode, verbose)
+					err = runInEmulator(ctx, ctx.crossCompile.Emulator, envMap, pkg.Dir, pkg.PkgPath, conf, mode, verbose)
 				} else {
 					err = flash.FlashDevice(ctx.crossCompile.Device, envMap, ctx.buildConf.Port, verbose)
 					if err != nil {
@@ -2385,6 +2385,12 @@ func parseEnvBool(value string, defVal bool) bool {
 	return envVal == "1" || envVal == "true" || envVal == "on"
 }
 
+// cacheEnabled checks if build cache is enabled.
+// Cache can be disabled by setting LLGO_BUILD_CACHE=off|0.
+func cacheEnabled(conf *Config) bool {
+	return isEnvOnConfig(conf, llgoBuildCache, true)
+}
+
 func isEnvOnConfig(conf *Config, key string, defVal bool) bool {
 	return parseEnvBool(envConfigValue(conf, key), defVal)
 }
@@ -2394,12 +2400,6 @@ func envConfigValue(conf *Config, key string) string {
 		return os.Getenv(key)
 	}
 	return processenv.Get(conf.environment, key)
-}
-
-// cacheEnabled checks if build cache is enabled.
-// Cache can be disabled by setting LLGO_BUILD_CACHE=off|0
-func cacheEnabled() bool {
-	return isEnvOn(llgoBuildCache, true)
 }
 
 func IsTraceEnabled() bool {
@@ -2461,6 +2461,13 @@ func Plan9ASMPkgs() string {
 
 func WasmRuntime() string {
 	return defaultEnv(llgoWasmRuntime, defaultWasmRuntime)
+}
+
+func WasmRuntimeForConfig(conf *Config) string {
+	if value := envConfigValue(conf, llgoWasmRuntime); value != "" {
+		return value
+	}
+	return defaultWasmRuntime
 }
 
 func concatPkgLinkFiles(ctx *context, pkg *packages.Package, verbose bool) (parts []string) {
