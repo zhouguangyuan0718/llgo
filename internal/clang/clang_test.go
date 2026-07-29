@@ -22,6 +22,7 @@ package clang
 import (
 	"bytes"
 	"os"
+	"os/exec"
 	"reflect"
 	"strings"
 	"testing"
@@ -273,6 +274,25 @@ func TestCompile(t *testing.T) {
 	}
 }
 
+func TestCmdFlagsUseExplicitEnvironment(t *testing.T) {
+	t.Setenv("CCFLAGS", "-DPROCESS")
+	t.Setenv("CFLAGS", "-DPROCESS_C")
+	t.Setenv("LDFLAGS", "-lprocess")
+
+	cmd := New("echo", Config{})
+	cmd.Env = []string{
+		"CCFLAGS=-DREQUEST",
+		"CFLAGS=-DREQUEST_C",
+		"LDFLAGS=-lrequest",
+	}
+	if got, want := cmd.mergeCompilerFlags(), []string{"-DREQUEST", "-DREQUEST_C"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("compiler flags = %v, want %v", got, want)
+	}
+	if got, want := cmd.mergeLinkerFlags(), []string{"-DREQUEST", "-lrequest"}; !reflect.DeepEqual(got, want) {
+		t.Fatalf("linker flags = %v, want %v", got, want)
+	}
+}
+
 func TestLink(t *testing.T) {
 	// This test uses echo instead of clang to avoid dependency on clang installation
 	config := Config{
@@ -319,7 +339,11 @@ func TestVerboseMode(t *testing.T) {
 
 func TestCmdEnvironment(t *testing.T) {
 	config := Config{}
-	cmd := New("echo", config)
+	echo, err := exec.LookPath("echo")
+	if err != nil {
+		t.Fatal(err)
+	}
+	cmd := New(echo, config)
 	cmd.Env = []string{"TEST_VAR=test_value"}
 
 	var stdout bytes.Buffer
@@ -327,7 +351,7 @@ func TestCmdEnvironment(t *testing.T) {
 
 	// Use a command that will show environment variables
 	// Note: This is a simplified test that just ensures the Env field is set
-	err := cmd.Compile("-c", "test.c")
+	err = cmd.Compile("-c", "test.c")
 	if err != nil {
 		t.Errorf("Compile failed: %v", err)
 	}
