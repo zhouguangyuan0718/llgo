@@ -136,6 +136,75 @@ printf '%s\n' '{"kind":"TranslationUnitDecl","inner":[{"kind":"FunctionDecl","na
 	if len(symbols) != 0 {
 		t.Fatalf("resolved symbols were not removed: %v", symbols)
 	}
+
+	for _, tt := range []struct {
+		name    string
+		script  string
+		wantErr string
+	}{
+		{
+			name:    "function probe",
+			script:  "#!/bin/sh\nexit 1\n",
+			wantErr: "failed to get func names",
+		},
+		{
+			name: "macro probe",
+			script: `#!/bin/sh
+for arg in "$@"; do
+	if [ "$arg" = "-dM" ]; then
+		exit 1
+	fi
+done
+printf '%s\n' '{"kind":"TranslationUnitDecl"}'
+`,
+			wantErr: "failed to get macro names",
+		},
+	} {
+		t.Run(tt.name, func(t *testing.T) {
+			clang := filepath.Join(t.TempDir(), "clang")
+			if err := os.WriteFile(clang, []byte(tt.script), 0o755); err != nil {
+				t.Fatal(err)
+			}
+			if _, err := genExternDeclsByClang(clang, nil, "", nil, nil, false); err == nil || !strings.Contains(err.Error(), tt.wantErr) {
+				t.Fatalf("genExternDeclsByClang() error = %v, want %q", err, tt.wantErr)
+			}
+		})
+	}
+}
+
+func TestBuildCgoReportsClangProbeFailure(t *testing.T) {
+	if runtime.GOOS == "windows" {
+		t.Skip("test helper uses a shell script")
+	}
+
+	dir := t.TempDir()
+	clang := filepath.Join(dir, "clang")
+	if err := os.WriteFile(clang, []byte("#!/bin/sh\nexit 1\n"), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	t.Setenv("PATH", dir)
+
+	src := `package demo
+
+/*
+int request_value;
+*/
+import "unsafe"
+`
+	goFile := filepath.Join(dir, "demo.go")
+	fset := token.NewFileSet()
+	file, err := parser.ParseFile(fset, goFile, src, parser.ParseComments)
+	if err != nil {
+		t.Fatal(err)
+	}
+	ctx := &context{
+		conf:      &packages.Config{},
+		buildConf: &Config{},
+	}
+	pkg := &aPackage{Package: &packages.Package{Fset: fset}}
+	if _, _, err := buildCgo(ctx, pkg, []*ast.File{file}, nil, false); err == nil || !strings.Contains(err.Error(), "failed to generate extern decls") {
+		t.Fatalf("buildCgo() error = %v, want clang probe failure", err)
+	}
 }
 
 func TestParseCgoCollectsCXXFiles(t *testing.T) {
