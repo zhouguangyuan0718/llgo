@@ -151,6 +151,7 @@ func TestBuildRequestUsesExplicitWorkingDirectory(t *testing.T) {
 	}
 	conf := NewDefaultConf(ModeGen)
 	t.Setenv(llgoBuildCache, "0")
+	ambientPath := os.Getenv("PATH")
 	pkgs, err := Build(BuildRequest{
 		Args:   []string{"."},
 		Config: conf,
@@ -162,7 +163,42 @@ func TestBuildRequestUsesExplicitWorkingDirectory(t *testing.T) {
 	if len(pkgs) != 1 || pkgs[0].PkgPath != "example.com/requestdir" {
 		t.Fatalf("Build returned packages = %+v, want example.com/requestdir", pkgs)
 	}
+	if got := os.Getenv("PATH"); got != ambientPath {
+		t.Fatalf("Build changed process PATH from %q to %q", ambientPath, got)
+	}
 	pkgs[0].LPkg.Prog.Dispose()
+}
+
+func TestResolveOutputsUsesRequestDirectory(t *testing.T) {
+	dir := t.TempDir()
+	out := &OutFmtDetails{
+		Out: "app",
+		Bin: filepath.Join("firmware", "app.bin"),
+		Hex: filepath.Join(dir, "app.hex"),
+	}
+	resolveOutputs(dir, out)
+	if out.Out != filepath.Join(dir, "app") {
+		t.Fatalf("Out = %q", out.Out)
+	}
+	if out.Bin != filepath.Join(dir, "firmware", "app.bin") {
+		t.Fatalf("Bin = %q", out.Bin)
+	}
+	if out.Hex != filepath.Join(dir, "app.hex") {
+		t.Fatalf("absolute Hex changed to %q", out.Hex)
+	}
+}
+
+func TestConfigureCommandUsesBuildSnapshot(t *testing.T) {
+	dir := t.TempDir()
+	ctx := &context{dir: dir, environ: []string{"BUILD_MARKER=before"}}
+	cmd := ctx.configureCommand(exec.Command("unused"))
+	ctx.environ[0] = "BUILD_MARKER=after"
+	if cmd.Dir != dir {
+		t.Fatalf("command Dir = %q, want %q", cmd.Dir, dir)
+	}
+	if got, want := cmd.Env, []string{"BUILD_MARKER=before"}; !slices.Equal(got, want) {
+		t.Fatalf("command Env = %q, want %q", got, want)
+	}
 }
 
 func TestWithEnvLastValueWins(t *testing.T) {

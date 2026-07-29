@@ -280,6 +280,7 @@ func detectLLVMVersion(ctx *context) string {
 		cc = "clang"
 	}
 	versionCmd := exec.Command(cc, "--version")
+	ctx.configureCommand(versionCmd)
 	output, err := versionCmd.Output()
 	if err != nil {
 		return ""

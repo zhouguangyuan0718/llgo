@@ -617,6 +617,8 @@ func Build(req BuildRequest) ([]Package, error) {
 		passOpt:        passOpt,
 		buildConf:      conf,
 		crossCompile:   export,
+		dir:            dir,
+		environ:        slices.Clone(environ),
 		cTransformer:   cabi.NewTransformer(prog, export.LLVMTarget, export.TargetABI, conf.AbiMode, cabiOptimize),
 	}
 	defer ctx.closePackageMetas()
@@ -658,6 +660,7 @@ func Build(req BuildRequest) ([]Package, error) {
 			if err != nil {
 				return nil, err
 			}
+			resolveOutputs(ctx.dir, outFmts)
 
 			// Link main package using the output path from buildOutFmts
 			err = linkMainPkg(ctx, pkg, allPkgs, outFmts.Out, verbose)
@@ -713,7 +716,7 @@ func Build(req BuildRequest) ([]Package, error) {
 				if conf.Target == "" {
 					err = runNative(ctx, outFmts.Out, pkg.Dir, pkg.PkgPath, conf, mode)
 				} else if conf.Emulator {
-					err = runInEmulator(ctx.crossCompile.Emulator, envMap, pkg.Dir, pkg.PkgPath, conf, mode, verbose)
+					err = runInEmulator(ctx, ctx.crossCompile.Emulator, envMap, pkg.Dir, pkg.PkgPath, conf, mode, verbose)
 				} else {
 					err = flash.FlashDevice(ctx.crossCompile.Device, envMap, ctx.buildConf.Port, verbose)
 					if err != nil {
@@ -874,6 +877,8 @@ type context struct {
 
 	buildConf    *Config
 	crossCompile crosscompile.Export
+	dir          string
+	environ      []string
 
 	cTransformer *cabi.Transformer
 
@@ -917,7 +922,15 @@ func (c *context) compiler() *clang.Cmd {
 		c.crossCompile.Linker,
 	)
 	cmd := clang.NewCompiler(config)
+	cmd.Dir = c.dir
+	cmd.Env = slices.Clone(c.environ)
 	cmd.Verbose = c.shouldPrintCommands(false)
+	return cmd
+}
+
+func (c *context) configureCommand(cmd *exec.Cmd) *exec.Cmd {
+	cmd.Dir = c.dir
+	cmd.Env = slices.Clone(c.environ)
 	return cmd
 }
 
@@ -944,6 +957,8 @@ func (c *context) linker() *clang.Cmd {
 		c.crossCompile.Linker,
 	)
 	cmd := clang.NewLinker(config)
+	cmd.Dir = c.dir
+	cmd.Env = slices.Clone(c.environ)
 	cmd.Verbose = c.shouldPrintCommands(false)
 	return cmd
 }
@@ -1671,7 +1686,7 @@ func (c *context) createMergedArchiveFile(archivePath string, inputs []string, v
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(arCmd, "-M")
+	cmd := c.configureCommand(exec.Command(arCmd, "-M"))
 	cmd.Stdin = strings.NewReader(script.String())
 	printCmds := c.shouldPrintCommands(len(verbose) > 0 && verbose[0])
 	if printCmds {
@@ -1710,7 +1725,7 @@ func (c *context) createArchiveFile(archivePath string, objFiles []string, verbo
 
 	args := append([]string{"rcs", tmpName}, objFiles...)
 	arCmd := c.archiver()
-	cmd := exec.Command(arCmd, args...)
+	cmd := c.configureCommand(exec.Command(arCmd, args...))
 	printCmds := c.shouldPrintCommands(len(verbose) > 0 && verbose[0])
 	if printCmds {
 		fmt.Fprintf(os.Stderr, "%s %s\n", filepath.Base(arCmd), strings.Join(args, " "))
@@ -1917,7 +1932,7 @@ func dumpLLVMIRIfNeeded(ctx *context, pkgPath string, exportFile string, data st
 		return err
 	}
 	if ctx.buildConf.CheckLLFiles {
-		if msg, err := llcCheck(ctx.env, f.Name()); err != nil {
+		if msg, err := llcCheck(ctx, f.Name()); err != nil {
 			fmt.Fprintf(os.Stderr, "==> llc %v: %v\n%v\n", pkgPath, f.Name(), msg)
 		}
 	}
@@ -2001,7 +2016,7 @@ func exportObjectWithClang(ctx *context, pkgPath string, exportFile string, data
 		return exportFile, err
 	}
 	if ctx.buildConf.CheckLLFiles {
-		if msg, err := llcCheck(ctx.env, f.Name()); err != nil {
+		if msg, err := llcCheck(ctx, f.Name()); err != nil {
 			fmt.Fprintf(os.Stderr, "==> llc %v: %v\n%v\n", pkgPath, f.Name(), msg)
 		}
 	}
@@ -2029,8 +2044,8 @@ func exportObjectWithClang(ctx *context, pkgPath string, exportFile string, data
 	return objFile.Name(), cmd.Compile(args...)
 }
 
-func llcCheck(env *llvm.Env, exportFile string) (msg string, err error) {
-	cmd := exec.Command(env.LLCBin(), "-filetype=null", exportFile)
+func llcCheck(ctx *context, exportFile string) (msg string, err error) {
+	cmd := ctx.configureCommand(exec.Command(ctx.env.LLCBin(), "-filetype=null", exportFile))
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
 	if err = cmd.Run(); err != nil {
