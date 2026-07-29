@@ -3,7 +3,9 @@ package processenv
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"path/filepath"
+	"runtime"
 	"slices"
 	"strings"
 )
@@ -78,4 +80,74 @@ func Lookup(environ []string, key string) (string, bool) {
 		}
 	}
 	return "", false
+}
+
+// Command constructs a command whose path lookup, environment and working
+// directory all come from the same snapshot. A nil environ inherits the
+// process environment while still applying dir.
+func Command(environ []string, dir, name string, args ...string) *exec.Cmd {
+	return (Context{Dir: dir, Env: environ}).Command(name, args...)
+}
+
+// Command constructs a command using the context environment and directory.
+func (c Context) Command(name string, args ...string) *exec.Cmd {
+	cmd := exec.Command(name, args...)
+	cmd.Dir = c.Dir
+	if c.Env == nil {
+		return cmd
+	}
+	cmd.Env = slices.Clone(c.Env)
+	path, err := c.LookPath(name)
+	cmd.Path = path
+	cmd.Err = err
+	return cmd
+}
+
+// LookPath searches file using PATH from environ. A match through a relative
+// PATH entry is resolved against dir but returned with exec.ErrDot, matching
+// the standard library safeguard against executing from a working directory.
+func LookPath(environ []string, dir, file string) (string, error) {
+	return (Context{Dir: dir, Env: environ}).LookPath(file)
+}
+
+// LookPath searches file using PATH from the context environment.
+func (c Context) LookPath(file string) (string, error) {
+	if c.Env == nil {
+		return exec.LookPath(file)
+	}
+	if strings.ContainsRune(file, os.PathSeparator) {
+		path := file
+		if !filepath.IsAbs(path) && c.Dir != "" {
+			path = filepath.Join(c.Dir, path)
+		}
+		if executable(path) {
+			return path, nil
+		}
+		return "", exec.ErrNotFound
+	}
+	extensions := []string{""}
+	if runtime.GOOS == "windows" && filepath.Ext(file) == "" {
+		if pathExt := c.Get("PATHEXT"); pathExt != "" {
+			extensions = filepath.SplitList(strings.ToLower(pathExt))
+		}
+	}
+	for _, pathDir := range filepath.SplitList(c.Get("PATH")) {
+		if pathDir == "" {
+			pathDir = "."
+		}
+		relative := !filepath.IsAbs(pathDir)
+		if relative && c.Dir != "" {
+			pathDir = filepath.Join(c.Dir, pathDir)
+		}
+		for _, extension := range extensions {
+			candidate := filepath.Join(pathDir, file+extension)
+			if executable(candidate) {
+				if relative {
+					return candidate, exec.ErrDot
+				}
+				return candidate, nil
+			}
+		}
+	}
+	return "", exec.ErrNotFound
 }
