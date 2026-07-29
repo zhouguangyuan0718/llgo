@@ -441,8 +441,6 @@ func Build(req BuildRequest) ([]Package, error) {
 	if conf.Mode == ModeTest {
 		cfg.Mode |= packages.NeedForTest
 	}
-	abi.SetRewriteMainPrefix(conf.RewriteMainPrefix)
-
 	emitDebugInfo := shouldEmitDebugInfo(conf, &export)
 	frontendOptions := cl.Options{
 		Debug:        emitDebugInfo,
@@ -456,10 +454,11 @@ func Build(req BuildRequest) ([]Package, error) {
 	})
 
 	target := &llssa.Target{
-		GOOS:     conf.Goos,
-		GOARCH:   conf.Goarch,
-		Target:   conf.Target,
-		OptLevel: conf.OptLevel,
+		GOOS:              conf.Goos,
+		GOARCH:            conf.Goarch,
+		Target:            conf.Target,
+		OptLevel:          conf.OptLevel,
+		RewriteMainPrefix: conf.RewriteMainPrefix,
 	}
 
 	prog := llssa.NewProgram(target)
@@ -1477,6 +1476,11 @@ func isRuntimePkg(pkgPath string) bool {
 
 func linkObjFiles(ctx *context, app string, objFiles, linkArgs []string, verbose bool) error {
 	printCmds := ctx.shouldPrintCommands(verbose)
+	if dir := filepath.Dir(app); dir != "." {
+		if err := os.MkdirAll(dir, 0o755); err != nil {
+			return fmt.Errorf("create output directory %s: %w", dir, err)
+		}
+	}
 	// Handle c-archive mode differently - use ar tool instead of linker
 	if ctx.buildConf.BuildMode == BuildModeCArchive {
 		return ctx.createMergedArchiveFile(app, objFiles, printCmds)
