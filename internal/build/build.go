@@ -241,6 +241,50 @@ func (c *Config) clone() *Config {
 	return &cloned
 }
 
+// resolveBuildConfig validates and fills build-local defaults without
+// modifying the caller's Config. Target-derived GOOS/GOARCH values are
+// resolved later, after crosscompile.Use has selected the toolchain.
+func resolveBuildConfig(input *Config) (*Config, error) {
+	if input == nil {
+		return nil, errors.New("build config must not be nil")
+	}
+	conf := input.clone()
+	if conf.Goos == "" {
+		conf.Goos = runtime.GOOS
+	}
+	if conf.Goarch == "" {
+		conf.Goarch = runtime.GOARCH
+	}
+	if conf.AppExt == "" {
+		conf.AppExt = defaultAppExt(conf)
+	}
+	if conf.BuildMode == "" {
+		conf.BuildMode = BuildModeExe
+	}
+	if conf.BuildMode != BuildModeExe {
+		conf.DeadcodeDrop = false
+	}
+	conf.PCLNMode = effectivePCLNMode(conf)
+	conf.PCLNModeSet = true
+	if conf.SizeReport && conf.SizeFormat == "" {
+		conf.SizeFormat = "text"
+	}
+	if conf.SizeReport && conf.SizeLevel == "" {
+		conf.SizeLevel = "module"
+	}
+	if err := validatePCLNMode(conf); err != nil {
+		return nil, err
+	}
+	if err := ensureSizeReporting(conf); err != nil {
+		return nil, err
+	}
+	if err := conf.LinkOptions.validate(); err != nil {
+		return nil, err
+	}
+	conf.OptLevel = effectiveOptLevel(conf)
+	return conf, nil
+}
+
 func NewDefaultConf(mode Mode) *Config {
 	bin := os.Getenv("GOBIN")
 	if bin == "" {
@@ -249,9 +293,6 @@ func NewDefaultConf(mode Mode) *Config {
 			panic(fmt.Errorf("cannot get GOPATH: %v", err))
 		}
 		bin = filepath.Join(gopath, "bin")
-	}
-	if err := os.MkdirAll(bin, 0755); err != nil {
-		panic(fmt.Errorf("cannot create bin directory: %v", err))
 	}
 	goos, goarch := os.Getenv("GOOS"), os.Getenv("GOARCH")
 	if goos == "" {
@@ -334,43 +375,10 @@ func Build(req BuildRequest) ([]Package, error) {
 		}
 	}
 	environ := os.Environ()
-	if req.Config == nil {
-		return nil, errors.New("build config must not be nil")
-	}
-	conf := req.Config.clone()
-	if conf.Goos == "" {
-		conf.Goos = runtime.GOOS
-	}
-	if conf.Goarch == "" {
-		conf.Goarch = runtime.GOARCH
-	}
-	if conf.AppExt == "" {
-		conf.AppExt = defaultAppExt(conf)
-	}
-	if conf.BuildMode == "" {
-		conf.BuildMode = BuildModeExe
-	}
-	if conf.BuildMode != BuildModeExe {
-		conf.DeadcodeDrop = false
-	}
-	conf.PCLNMode = effectivePCLNMode(conf)
-	conf.PCLNModeSet = true
-	if conf.SizeReport && conf.SizeFormat == "" {
-		conf.SizeFormat = "text"
-	}
-	if conf.SizeReport && conf.SizeLevel == "" {
-		conf.SizeLevel = "module"
-	}
-	if err := validatePCLNMode(conf); err != nil {
+	conf, err := resolveBuildConfig(req.Config)
+	if err != nil {
 		return nil, err
 	}
-	if err := ensureSizeReporting(conf); err != nil {
-		return nil, err
-	}
-	if err := conf.LinkOptions.validate(); err != nil {
-		return nil, err
-	}
-	conf.OptLevel = effectiveOptLevel(conf)
 	// Handle crosscompile configuration first to set correct GOOS/GOARCH
 	forceEspClang := conf.ForceEspClang || conf.Target != ""
 	export, err := crosscompile.Use(conf.Goos, conf.Goarch, conf.Target, IsWasiThreadsEnabled(), forceEspClang, conf.OptLevel, conf.ltoMode(), conf.goGlobalDCEEnabled())
