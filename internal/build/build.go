@@ -27,7 +27,6 @@ import (
 	"go/types"
 	"log"
 	"os"
-	"os/exec"
 	"path"
 	"path/filepath"
 	"runtime"
@@ -212,6 +211,7 @@ type Config struct {
 	Overlay        map[string][]byte
 
 	environment []string
+	llgoRoot    string
 }
 
 type Rewrites map[string]string
@@ -257,6 +257,7 @@ func resolveBuildConfig(input *Config, environ []string) (*Config, error) {
 	if environ == nil {
 		conf.environment = os.Environ()
 	}
+	conf.llgoRoot = env.LLGoROOTWithEnv(conf.environment)
 	if conf.Goos == "" {
 		conf.Goos = runtime.GOOS
 	}
@@ -359,6 +360,13 @@ func (c *Config) packageMetaEnabled() bool {
 	return c.CollectPackageMeta || c.deadcodeDropEnabled()
 }
 
+func (c *Config) llgoRuntimeDir() string {
+	if c == nil || c.llgoRoot == "" {
+		return ""
+	}
+	return filepath.Join(c.llgoRoot, env.LLGoRuntimePkgName)
+}
+
 // -----------------------------------------------------------------------------
 
 const (
@@ -385,7 +393,7 @@ func Build(req BuildRequest) ([]Package, error) {
 	}
 	// Handle crosscompile configuration first to set correct GOOS/GOARCH
 	forceEspClang := conf.ForceEspClang || conf.Target != ""
-	export, err := crosscompile.Use(conf.Goos, conf.Goarch, conf.Target, isEnvOnConfig(conf, llgoWasiThreads, true), forceEspClang, conf.OptLevel, conf.ltoMode(), conf.goGlobalDCEEnabled())
+	export, err := crosscompile.UseWithContext(conf.Goos, conf.Goarch, conf.Target, isEnvOnConfig(conf, llgoWasiThreads, false), forceEspClang, conf.OptLevel, conf.ltoMode(), conf.goGlobalDCEEnabled(), process, conf.llgoRoot)
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup crosscompile: %w", err)
 	}
@@ -514,7 +522,7 @@ func Build(req BuildRequest) ([]Package, error) {
 		return nil, err
 	}
 	var llgoFiles map[string][]string
-	conf.Overlay, llgoFiles, err = buildSourcePatchOverlayForGOROOT(conf.Overlay, env.LLGoRuntimeDir(), sourcePatchGOROOT, sourcePatchBuildContext{
+	conf.Overlay, llgoFiles, err = buildSourcePatchOverlayForGOROOT(conf.Overlay, conf.llgoRuntimeDir(), sourcePatchGOROOT, sourcePatchBuildContext{
 		goos:       conf.Goos,
 		goarch:     conf.Goarch,
 		goversion:  sourcePatchGoVersion,
@@ -569,7 +577,7 @@ func Build(req BuildRequest) ([]Package, error) {
 
 	altPkgPaths := altPkgs(initial, conf, llssa.PkgRuntime)
 	altCfg := *cfg
-	altCfg.Dir = env.LLGoRuntimeDir()
+	altCfg.Dir = conf.llgoRuntimeDir()
 	altPkgs, err := packages.LoadEx(dedup, sizes, &altCfg, altPkgPaths...)
 	if err != nil {
 		return nil, err
@@ -605,8 +613,7 @@ func Build(req BuildRequest) ([]Package, error) {
 	patches := make(cl.Patches, len(altPkgPaths))
 	altSSAPkgs(progSSA, patches, altPkgs[1:], conf, verbose)
 
-	env := llvm.New("")
-	os.Setenv("PATH", env.BinDir()+":"+os.Getenv("PATH")) // TODO(xsw): check windows
+	env := llvm.NewWithContext("", process)
 
 	output := conf.OutFile != ""
 	ctx := &context{env: env, conf: cfg, progSSA: progSSA, prog: prog, dedup: dedup,
@@ -619,6 +626,7 @@ func Build(req BuildRequest) ([]Package, error) {
 		passOpt:        passOpt,
 		buildConf:      conf,
 		crossCompile:   export,
+		process:        process,
 		cTransformer:   cabi.NewTransformer(prog, export.LLVMTarget, export.TargetABI, conf.AbiMode, cabiOptimize),
 	}
 	defer ctx.closePackageMetas()
@@ -660,6 +668,7 @@ func Build(req BuildRequest) ([]Package, error) {
 			if err != nil {
 				return nil, err
 			}
+			resolveOutputs(ctx.process, outFmts)
 
 			// Link main package using the output path from buildOutFmts
 			err = linkMainPkg(ctx, pkg, allPkgs, outFmts.Out, verbose)
@@ -876,6 +885,7 @@ type context struct {
 
 	buildConf    *Config
 	crossCompile crosscompile.Export
+	process      processenv.Context
 
 	cTransformer *cabi.Transformer
 
@@ -919,6 +929,8 @@ func (c *context) compiler() *clang.Cmd {
 		c.crossCompile.Linker,
 	)
 	cmd := clang.NewCompiler(config)
+	cmd.Dir = c.process.Dir
+	cmd.Env = slices.Clone(c.process.Env)
 	cmd.Verbose = c.shouldPrintCommands(false)
 	return cmd
 }
@@ -932,6 +944,8 @@ func (c *context) linker() *clang.Cmd {
 		c.crossCompile.Linker,
 	)
 	cmd := clang.NewLinker(config)
+	cmd.Dir = c.process.Dir
+	cmd.Env = slices.Clone(c.process.Env)
 	cmd.Verbose = c.shouldPrintCommands(false)
 	return cmd
 }
@@ -1087,7 +1101,7 @@ func appendExternalLinkArgs(ctx *context, aPkg *aPackage, spec string) {
 	for _, alt := range altParts {
 		alt = strings.TrimSpace(alt)
 		if strings.ContainsRune(alt, '$') {
-			expdArgs = append(expdArgs, xenv.ExpandEnvToArgs(alt)...)
+			expdArgs = append(expdArgs, xenv.ExpandEnvToArgsWithEnv(alt, ctx.process.Env, ctx.process.Dir)...)
 			atomic.AddInt32(&ctx.nLibdir, 1)
 		} else {
 			fields := strings.Fields(alt)
@@ -1188,7 +1202,7 @@ func compileExtraFiles(ctx *context, verbose bool) ([]string, error) {
 
 	printCmds := ctx.shouldPrintCommands(verbose)
 	var objFiles []string
-	llgoRoot := env.LLGoROOT()
+	llgoRoot := ctx.buildConf.llgoRoot
 
 	for _, extraFile := range ctx.crossCompile.ExtraFiles {
 		// Resolve the file path relative to llgo root
@@ -1264,7 +1278,7 @@ func rewritePrebuiltFuncTab(ctx *context, out string, verbose bool) {
 	if ctx.buildConf.BuildMode != BuildModeExe {
 		return
 	}
-	if os.Getenv("LLGO_PCLNPOST") == "0" { // escape hatch: keep first-use construction
+	if envConfigValue(ctx.buildConf, "LLGO_PCLNPOST") == "0" { // escape hatch: keep first-use construction
 		return
 	}
 	st, err := pclnpost.Rewrite(out)
@@ -1400,7 +1414,7 @@ func linkMainPkg(ctx *context, pkg *packages.Package, pkgs []*aPackage, outputPa
 	linkInputs = append(linkInputs, extraObjFiles...)
 	linkInputs = append(linkInputs, archiveInputs...)
 
-	if IsFullRpathEnabled() {
+	if isEnvOnConfig(ctx.buildConf, llgoFullRpath, false) {
 		// Treat every link-time library search path, specified by the -L parameter, as a runtime search path as well.
 		// This is to ensure the final executable can locate libraries with a relocatable install_name
 		// (e.g., "@rpath/libfoo.dylib") at runtime.
@@ -1590,11 +1604,11 @@ func (c *context) archiver() string {
 		}
 	}
 	// Allow user override
-	if ar := os.Getenv("LLGO_AR"); ar != "" {
+	if ar := envConfigValue(c.buildConf, "LLGO_AR"); ar != "" {
 		return ar
 	}
 	if c.buildConf.ltoEnabled() || c.buildConf.Goarch == "wasm" || strings.Contains(c.crossCompile.LLVMTarget, "wasm") {
-		if llvmAr, err := exec.LookPath("llvm-ar"); err == nil {
+		if llvmAr, err := c.process.LookPath("llvm-ar"); err == nil {
 			return llvmAr
 		}
 	}
@@ -1605,7 +1619,7 @@ func (c *context) archiver() string {
 // flatten package archives into the final c-archive instead of nesting .a
 // files as members. LLVM is already a required LLGo toolchain dependency.
 func (c *context) archiveMerger() (string, error) {
-	if ar := os.Getenv("LLGO_AR"); ar != "" {
+	if ar := envConfigValue(c.buildConf, "LLGO_AR"); ar != "" {
 		return ar, nil
 	}
 	if c.crossCompile.CC != "" {
@@ -1614,7 +1628,7 @@ func (c *context) archiveMerger() (string, error) {
 			return llvmAr, nil
 		}
 	}
-	if llvmAr, err := exec.LookPath("llvm-ar"); err == nil {
+	if llvmAr, err := c.process.LookPath("llvm-ar"); err == nil {
 		return llvmAr, nil
 	}
 	return "", errors.New("llvm-ar is required to create a flat c-archive")
@@ -1656,7 +1670,7 @@ func (c *context) createMergedArchiveFile(archivePath string, inputs []string, v
 	if err != nil {
 		return err
 	}
-	cmd := exec.Command(arCmd, "-M")
+	cmd := c.process.Command(arCmd, "-M")
 	cmd.Stdin = strings.NewReader(script.String())
 	printCmds := c.shouldPrintCommands(len(verbose) > 0 && verbose[0])
 	if printCmds {
@@ -1695,7 +1709,7 @@ func (c *context) createArchiveFile(archivePath string, objFiles []string, verbo
 
 	args := append([]string{"rcs", tmpName}, objFiles...)
 	arCmd := c.archiver()
-	cmd := exec.Command(arCmd, args...)
+	cmd := c.process.Command(arCmd, args...)
 	printCmds := c.shouldPrintCommands(len(verbose) > 0 && verbose[0])
 	if printCmds {
 		fmt.Fprintf(os.Stderr, "%s %s\n", filepath.Base(arCmd), strings.Join(args, " "))
@@ -1902,7 +1916,7 @@ func dumpLLVMIRIfNeeded(ctx *context, pkgPath string, exportFile string, data st
 		return err
 	}
 	if ctx.buildConf.CheckLLFiles {
-		if msg, err := llcCheck(ctx.env, f.Name()); err != nil {
+		if msg, err := llcCheck(ctx, f.Name()); err != nil {
 			fmt.Fprintf(os.Stderr, "==> llc %v: %v\n%v\n", pkgPath, f.Name(), msg)
 		}
 	}
@@ -1986,7 +2000,7 @@ func exportObjectWithClang(ctx *context, pkgPath string, exportFile string, data
 		return exportFile, err
 	}
 	if ctx.buildConf.CheckLLFiles {
-		if msg, err := llcCheck(ctx.env, f.Name()); err != nil {
+		if msg, err := llcCheck(ctx, f.Name()); err != nil {
 			fmt.Fprintf(os.Stderr, "==> llc %v: %v\n%v\n", pkgPath, f.Name(), msg)
 		}
 	}
@@ -2014,9 +2028,9 @@ func exportObjectWithClang(ctx *context, pkgPath string, exportFile string, data
 	return objFile.Name(), cmd.Compile(args...)
 }
 
-func llcCheck(env *llvm.Env, exportFile string) (msg string, err error) {
-	bin := filepath.Join(env.BinDir(), "llc")
-	cmd := exec.Command(bin, "-filetype=null", exportFile)
+func llcCheck(ctx *context, exportFile string) (msg string, err error) {
+	bin := filepath.Join(ctx.env.BinDir(), "llc")
+	cmd := ctx.process.Command(bin, "-filetype=null", exportFile)
 	var buf bytes.Buffer
 	cmd.Stderr = &buf
 	if err = cmd.Run(); err != nil {
@@ -2474,7 +2488,7 @@ func clFiles(ctx *context, files string, pkg *packages.Package, procFile func(li
 	args := make([]string, 0, 16)
 	if strings.HasPrefix(files, "$") { // has cflags
 		if pos := strings.IndexByte(files, ':'); pos > 0 {
-			cflags := xenv.ExpandEnvToArgs(files[:pos])
+			cflags := xenv.ExpandEnvToArgsWithEnv(files[:pos], ctx.process.Env, ctx.process.Dir)
 			files = files[pos+1:]
 			args = append(args, cflags...)
 		}

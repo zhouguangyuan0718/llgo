@@ -1,6 +1,10 @@
 package build
 
-import "strings"
+import (
+	"strings"
+
+	"github.com/goplus/llgo/internal/processenv"
+)
 
 // BuildRequest contains the process-derived inputs used by one build. Empty
 // Dir and a nil Env preserve the command-line behavior by snapshotting the
@@ -10,6 +14,16 @@ type BuildRequest struct {
 	Config *Config
 	Dir    string
 	Env    []string
+}
+
+func resolveOutputs(process processenv.Context, out *OutFmtDetails) {
+	out.Out = process.Abs(out.Out)
+	out.PCLN = process.Abs(out.PCLN)
+	out.Bin = process.Abs(out.Bin)
+	out.Hex = process.Abs(out.Hex)
+	out.Img = process.Abs(out.Img)
+	out.Uf2 = process.Abs(out.Uf2)
+	out.Zip = process.Abs(out.Zip)
 }
 
 func withEnv(environ []string, values ...string) []string {

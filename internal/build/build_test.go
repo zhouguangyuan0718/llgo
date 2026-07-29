@@ -31,6 +31,7 @@ import (
 	"github.com/goplus/llgo/internal/meta"
 	"github.com/goplus/llgo/internal/mockable"
 	"github.com/goplus/llgo/internal/packages"
+	"github.com/goplus/llgo/internal/processenv"
 	llssa "github.com/goplus/llgo/ssa"
 	"github.com/xgo-dev/llvm"
 )
@@ -168,6 +169,7 @@ func TestBuildRequestUsesExplicitWorkingDirectory(t *testing.T) {
 		t.Fatal(err)
 	}
 	conf := NewDefaultConf(ModeGen)
+	ambientPath := os.Getenv("PATH")
 	pkgs, err := Build(BuildRequest{
 		Args:   []string{"."},
 		Config: conf,
@@ -180,7 +182,29 @@ func TestBuildRequestUsesExplicitWorkingDirectory(t *testing.T) {
 	if len(pkgs) != 1 || pkgs[0].PkgPath != "example.com/requestdir" {
 		t.Fatalf("Build returned packages = %+v, want example.com/requestdir", pkgs)
 	}
+	if got := os.Getenv("PATH"); got != ambientPath {
+		t.Fatalf("Build changed process PATH from %q to %q", ambientPath, got)
+	}
 	pkgs[0].LPkg.Prog.Dispose()
+}
+
+func TestResolveOutputsUsesRequestDirectory(t *testing.T) {
+	dir := t.TempDir()
+	out := &OutFmtDetails{
+		Out: "app",
+		Bin: filepath.Join("firmware", "app.bin"),
+		Hex: filepath.Join(dir, "app.hex"),
+	}
+	resolveOutputs(processenv.Context{Dir: dir}, out)
+	if out.Out != filepath.Join(dir, "app") {
+		t.Fatalf("Out = %q", out.Out)
+	}
+	if out.Bin != filepath.Join(dir, "firmware", "app.bin") {
+		t.Fatalf("Bin = %q", out.Bin)
+	}
+	if out.Hex != filepath.Join(dir, "app.hex") {
+		t.Fatalf("absolute Hex changed to %q", out.Hex)
+	}
 }
 
 func TestWithEnvLastValueWins(t *testing.T) {
