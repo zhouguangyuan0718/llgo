@@ -32,7 +32,7 @@ jobs:
             go: "1.24.2"
             lane: compatibility
           - os: ubuntu-latest
-            llvm: 19
+            llvm: 21
             go: "1.26.5"
             lane: primary
           - os: macos-latest
@@ -40,10 +40,12 @@ jobs:
             go: "1.24.2"
             lane: compatibility
           - os: macos-latest
-            llvm: 19
+            llvm: 21
             go: "1.26.5"
             lane: primary
     runs-on: ${{matrix.os}}
+    env:
+      GOFLAGS: ${{ matrix.llvm == 19 && '-tags=llvm19' || '' }}
     steps:
       - uses: actions/checkout@v7
       - name: Install dependencies
@@ -143,30 +145,39 @@ jobs:
     timeout-minutes: ${{ startsWith(matrix.os, 'macos') && 45 || 30 }}
     strategy:
       matrix:
-        # Keep compatibility and primary toolchains pinned to exact patches.
-        os:
-          - macos-latest
-          - ubuntu-latest
-        llvm: [19]
-        go: ["1.24.2", "1.26.5"]
-        # In-command package parallelism lets Ubuntu use two shards while
-        # retaining headroom for the serial std build-mode checks.
-        shard: ["0", "1"]
         include:
-          - go: "1.24.2"
-            lane: compatibility
-          - go: "1.26.5"
-            lane: primary
-        exclude:
-          # The full demo lane above exercises Go 1.24 user-project/runtime
-          # compatibility on macOS. Keep the much larger per-package
-          # compatibility matrix on Ubuntu and use one parallel primary shard
-          # on macOS.
-          - os: macos-latest
+          # In-command package parallelism lets Ubuntu use two shards while
+          # retaining headroom for the serial std build-mode checks.
+          - os: ubuntu-latest
+            llvm: 19
             go: "1.24.2"
-          - os: macos-latest
+            lane: compatibility
+            shard: "0"
+          - os: ubuntu-latest
+            llvm: 19
+            go: "1.24.2"
+            lane: compatibility
             shard: "1"
+          - os: ubuntu-latest
+            llvm: 21
+            go: "1.26.5"
+            lane: primary
+            shard: "0"
+          - os: ubuntu-latest
+            llvm: 21
+            go: "1.26.5"
+            lane: primary
+            shard: "1"
+          # The full demo lane above exercises Go 1.24 user-project/runtime
+          # compatibility on macOS. Keep one parallel primary shard there.
+          - os: macos-latest
+            llvm: 21
+            go: "1.26.5"
+            lane: primary
+            shard: "0"
     runs-on: ${{matrix.os}}
+    env:
+      GOFLAGS: ${{ matrix.llvm == 19 && '-tags=llvm19' || '' }}
     steps:
       - uses: actions/checkout@v7
       - name: Install dependencies
@@ -248,16 +259,18 @@ jobs:
             go: "1.24.2"
             lane: compatibility
           - os: ubuntu-latest
-            llvm: 19
+            llvm: 21
             go: "1.26.5"
             lane: primary
           # Keep the Go 1.26 user-module compatibility matrix on both host
           # platforms; release artifact smoke tests alone only cover go 1.26.
           - os: macos-latest
-            llvm: 19
+            llvm: 21
             go: "1.26.5"
             lane: primary
     runs-on: ${{matrix.os}}
+    env:
+      GOFLAGS: ${{ matrix.llvm == 19 && '-tags=llvm19' || '' }}
     steps:
       - uses: actions/checkout@v7
       - name: Install dependencies
@@ -314,7 +327,7 @@ jobs:
         # Ubuntu. Native Darwin coverage remains in the primary LLGo lanes and
         # release artifact smoke tests.
         os: [ubuntu-latest]
-        llvm: [19]
+        llvm: [21]
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v7
@@ -367,7 +380,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup-deps
         with:
-          llvm-version: 19
+          llvm-version: 21
 
       - name: Set up Emscripten
         uses: emscripten-core/setup-emsdk@v15
