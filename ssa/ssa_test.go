@@ -604,8 +604,11 @@ func TestDevLTOGlobalDCEReflectPackageEnablesVirtualFunctionElim(t *testing.T) {
 	}
 }
 
-func TestDevLTOGlobalDCEFakeUseValueInlineAsm(t *testing.T) {
+func TestDevLTOGlobalDCEFakeUseValueIntrinsic(t *testing.T) {
 	requireGoGlobalDCE(t)
+	if strings.HasPrefix(llvm.Version, "19.") {
+		t.Skip("llvm.fake.use requires LLVM 21")
+	}
 
 	prog := NewProgram(nil)
 	pkg := prog.NewPackage("main", "main")
@@ -613,15 +616,66 @@ func TestDevLTOGlobalDCEFakeUseValueInlineAsm(t *testing.T) {
 	target := pkg.NewFunc("Target", sig, InGo)
 	fn := pkg.NewFunc("Use", sig, InGo)
 	b := fn.MakeBody(1)
-	prog.fakeUseValueInlineAsm(b.impl, target.impl)
+	prog.fakeUseValue(b.impl, target.impl)
 	b.Return()
 
 	ir := pkg.String()
-	if !strings.Contains(ir, "asm sideeffect") {
-		t.Fatalf("missing inline asm fake-use:\n%s", ir)
+	if !strings.Contains(ir, "@llvm.fake.use") {
+		t.Fatalf("missing llvm.fake.use intrinsic:\n%s", ir)
+	}
+	if strings.Contains(ir, "asm sideeffect") {
+		t.Fatalf("fake-use must not use inline asm:\n%s", ir)
 	}
 	if !strings.Contains(ir, "ptr @Target") {
-		t.Fatalf("missing inline asm operand:\n%s", ir)
+		t.Fatalf("missing fake-use operand:\n%s", ir)
+	}
+}
+
+func TestDevLTOGlobalDCEFakeUseFollowsCallerLiveness(t *testing.T) {
+	requireGoGlobalDCE(t)
+	if strings.HasPrefix(llvm.Version, "19.") {
+		t.Skip("llvm.fake.use requires LLVM 21")
+	}
+
+	prog := NewProgram(nil)
+	pkg := prog.NewPackage("main", "main")
+	sig := types.NewSignatureType(nil, nil, nil, nil, nil, false)
+
+	liveTarget := pkg.NewFunc("LiveTarget", sig, InGo)
+	liveTarget.impl.SetLinkage(llvm.InternalLinkage)
+	liveTargetBody := liveTarget.MakeBody(1)
+	liveTargetBody.Return()
+	liveCaller := pkg.NewFunc("LiveCaller", sig, InGo)
+	liveBody := liveCaller.MakeBody(1)
+	prog.fakeUseValue(liveBody.impl, liveTarget.impl)
+	liveBody.Return()
+
+	deadTarget := pkg.NewFunc("DeadTarget", sig, InGo)
+	deadTarget.impl.SetLinkage(llvm.InternalLinkage)
+	deadTargetBody := deadTarget.MakeBody(1)
+	deadTargetBody.Return()
+	deadCaller := pkg.NewFunc("DeadCaller", sig, InGo)
+	deadCaller.impl.SetLinkage(llvm.InternalLinkage)
+	deadBody := deadCaller.MakeBody(1)
+	prog.fakeUseValue(deadBody.impl, deadTarget.impl)
+	deadBody.Return()
+
+	mod := pkg.Module()
+	mod.SetDataLayout(prog.DataLayout())
+	mod.SetTarget(prog.Target().Spec().Triple)
+	pbo := llvm.NewPassBuilderOptions()
+	defer pbo.Dispose()
+	if err := llvm.VerifyModule(mod, llvm.ReturnStatusAction); err != nil {
+		t.Fatalf("verify module before DCE: %v", err)
+	}
+	if err := mod.RunPasses("globaldce", prog.TargetMachine(), pbo); err != nil {
+		t.Fatalf("run globaldce: %v", err)
+	}
+	if mod.NamedFunction("LiveTarget").IsNil() {
+		t.Fatalf("llvm.fake.use did not retain the live caller's target:\n%s", mod.String())
+	}
+	if !mod.NamedFunction("DeadTarget").IsNil() || !mod.NamedFunction("DeadCaller").IsNil() {
+		t.Fatalf("llvm.fake.use pinned a dead caller or its target:\n%s", mod.String())
 	}
 }
 
@@ -636,7 +690,7 @@ func TestDevLTOGlobalDCEMethodCheckedLoadEmitsIntrinsicAndAssume(t *testing.T) {
 	b := fn.MakeBody(1)
 	loaded := prog.methodCheckedLoad(b.impl, g.impl, "go.method.M:func()")
 	prog.methodCheckedLoad(b.impl, g.impl, "go.method.N:func()")
-	prog.fakeUseValueInlineAsm(b.impl, loaded)
+	prog.fakeUseValue(b.impl, loaded)
 	b.Return()
 
 	if err := llvm.VerifyModule(pkg.Module(), llvm.ReturnStatusAction); err != nil {
@@ -698,8 +752,11 @@ func TestDevLTOGlobalDCEReflectMethodByNameCallMarkers(t *testing.T) {
 	b.Return()
 }
 
-func TestDevLTOGlobalDCEEmitFakeUsesInlineAsmAtEntry(t *testing.T) {
+func TestDevLTOGlobalDCEEmitFakeUsesAtEntryDirect(t *testing.T) {
 	requireGoGlobalDCE(t)
+	if strings.HasPrefix(llvm.Version, "19.") {
+		t.Skip("llvm.fake.use requires LLVM 21")
+	}
 
 	prog := NewProgram(nil)
 	prog.EnableGoGlobalDCE(true)
@@ -710,21 +767,21 @@ func TestDevLTOGlobalDCEEmitFakeUsesInlineAsmAtEntry(t *testing.T) {
 	fn := pkg.NewFunc("UseIntrinsic", sig, InGo)
 	b := fn.MakeBody(1)
 
-	pkg.NewFunc("NoFakeUses", sig, InGo).emitFakeUsesInlineAsm(b)
+	pkg.NewFunc("NoFakeUses", sig, InGo).emitFakeUses(b)
 	fn.recordFakeUse(targetA.impl)
 	fn.recordFakeUse(targetB.impl)
 	b.Return()
-	fn.emitFakeUsesInlineAsm(b)
+	fn.emitFakeUses(b)
 
 	ir := pkg.String()
-	if !strings.Contains(ir, `call void asm sideeffect "", "X"(ptr @TargetA)`) {
-		t.Fatalf("missing inline asm fake-use for TargetA:\n%s", ir)
+	if !strings.Contains(ir, `call void (...) @llvm.fake.use(ptr @TargetA)`) {
+		t.Fatalf("missing llvm.fake.use for TargetA:\n%s", ir)
 	}
-	if !strings.Contains(ir, `call void asm sideeffect "", "X"(ptr @TargetB)`) {
-		t.Fatalf("missing inline asm fake-use for TargetB:\n%s", ir)
+	if !strings.Contains(ir, `call void (...) @llvm.fake.use(ptr @TargetB)`) {
+		t.Fatalf("missing llvm.fake.use for TargetB:\n%s", ir)
 	}
-	if strings.Index(ir, `call void asm sideeffect "", "X"(ptr @TargetA)`) > strings.Index(ir, "ret void") {
-		t.Fatalf("inline asm fake-use should be emitted before the return:\n%s", ir)
+	if strings.Index(ir, `call void (...) @llvm.fake.use(ptr @TargetA)`) > strings.Index(ir, "ret void") {
+		t.Fatalf("llvm.fake.use should be emitted before the return:\n%s", ir)
 	}
 }
 
@@ -1207,6 +1264,9 @@ func containsLLVMValueNameSuffix(values []llvm.Value, suffix string) bool {
 
 func TestDevLTOGlobalDCEEmitFakeUsesAtEntry(t *testing.T) {
 	requireGoGlobalDCE(t)
+	if strings.HasPrefix(llvm.Version, "19.") {
+		t.Skip("llvm.fake.use requires LLVM 21")
+	}
 
 	prog := NewProgram(nil)
 	prog.EnableGoGlobalDCE(true)
@@ -1223,11 +1283,11 @@ func TestDevLTOGlobalDCEEmitFakeUsesAtEntry(t *testing.T) {
 	b.EndBuild()
 
 	ir := pkg.String()
-	if strings.Count(ir, `call void asm sideeffect "", "X"(ptr @TargetA)`) != 1 {
-		t.Fatalf("missing deduplicated inline asm fake-use for TargetA:\n%s", ir)
+	if strings.Count(ir, `call void (...) @llvm.fake.use(ptr @TargetA)`) != 1 {
+		t.Fatalf("missing deduplicated llvm.fake.use for TargetA:\n%s", ir)
 	}
-	if strings.Count(ir, `call void asm sideeffect "", "X"(ptr @TargetB)`) != 1 {
-		t.Fatalf("missing inline asm fake-use for TargetB:\n%s", ir)
+	if strings.Count(ir, `call void (...) @llvm.fake.use(ptr @TargetB)`) != 1 {
+		t.Fatalf("missing llvm.fake.use for TargetB:\n%s", ir)
 	}
 }
 

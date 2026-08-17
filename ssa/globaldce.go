@@ -243,13 +243,7 @@ func (b Builder) EmitReflectTypeMethodCheckedLoad(ret Expr, check ReflectMethodC
 	checkedLoadMethod(ret)
 }
 
-func (p Program) fakeUseValueInlineAsm(b llvm.Builder, v llvm.Value) {
-	fnTy := llvm.FunctionType(p.tyVoid(), []llvm.Type{v.Type()}, false)
-	asm := llvm.InlineAsm(fnTy, "", "X", true, false, llvm.InlineAsmDialectATT, false)
-	llvm.CreateCall(b, fnTy, asm, []llvm.Value{v})
-}
-
-func (fn Function) emitFakeUsesInlineAsm(b Builder) {
+func (fn Function) emitFakeUses(b Builder) {
 	if len(fn.fakeUses) == 0 || len(fn.blks) == 0 {
 		return
 	}
@@ -257,7 +251,7 @@ func (fn Function) emitFakeUsesInlineAsm(b Builder) {
 	curInsert := b.impl.GetInsertBlock()
 	b.SetBlockEx(fn.blks[0], AtStart, false)
 	for _, v := range fn.fakeUses {
-		fn.Prog.fakeUseValueInlineAsm(b.impl, v)
+		fn.Prog.fakeUseValue(b.impl, v)
 	}
 	if !curInsert.IsNil() {
 		b.impl.SetInsertPointAtEnd(curInsert)
