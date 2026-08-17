@@ -64,8 +64,8 @@ func (p PassPlugin) LinkerFlags(goos string) ([]string, error) {
 	if !p.Enabled() {
 		return nil, nil
 	}
-	if goos == "darwin" {
-		return nil, fmt.Errorf("LTO pass plugins are not supported on darwin by the bundled ld64.lld or Apple ld64")
+	if goos == "darwin" && !supportsDarwinPassPlugin {
+		return nil, fmt.Errorf("LTO pass plugins on darwin require LLVM 21 ld64.lld")
 	}
 	return []string{"-Wl,--load-pass-plugin=" + p.Path}, nil
 }

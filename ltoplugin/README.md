@@ -12,19 +12,19 @@ cmake -S ltoplugin -B ltoplugin/build \
 cmake --build ltoplugin/build
 ```
 
-Load the plugin when building with full LTO on Linux/ELF:
+Load the plugin when building with full LTO on Linux or macOS:
 
 ```sh
 llgo build -lto=full -lto-pass-plugin=/path/to/LLGOLTOPlugin.so ./...
 ```
 
-On macOS, the built plugin usually uses the `.dylib` suffix.
+On macOS, the built plugin usually uses the `.dylib` suffix; pass that path to
+the same `-lto-pass-plugin` flag.
 
 The plugin registers `llgo-lto-pre-globaldce` and also inserts that pass through
 LLVM's full LTO early extension point, so loading the plugin is enough for the
 pass to run before the normal full LTO optimization pipeline proceeds.
 
-LLGo forwards the plugin path through lld's `--load-pass-plugin` option. LLVM 21
-`ld64.lld` and Apple `ld64` do not expose an equivalent new pass manager LTO
-plugin loading option for Mach-O links, so LLGo rejects `-lto-pass-plugin` for
-Darwin targets until the linker side grows that support.
+LLGo forwards the plugin path through LLVM 21 lld's `--load-pass-plugin` option.
+This is supported by both ELF `ld.lld` and Mach-O `ld64.lld`. LLGo selects lld
+for native links; invoking Apple `ld64` directly is outside this plugin path.
