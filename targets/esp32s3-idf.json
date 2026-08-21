@@ -1,0 +1,14 @@
+{
+	"inherits": [
+		"xtensa"
+	],
+	"llvm-target": "xtensa-esp-elf",
+	"cpu": "esp32s3",
+	"build-tags": [
+		"esp32s3",
+		"esp",
+		"espidf"
+	],
+	"archive-only": true,
+	"relocation-model": "static"
+}

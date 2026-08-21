@@ -30,6 +30,7 @@ type Export struct {
 	BuildTags    []string
 	GOOS         string
 	GOARCH       string
+	ArchiveOnly  bool
 	Libc         string
 	Linker       string   // Linker to use (e.g., "ld.lld", "avr-ld")
 	ExtraFiles   []string // Extra files to compile and link (e.g., .s, .c files)
@@ -498,6 +499,7 @@ func UseTarget(targetName string, level optlevel.Level, ltoMode lto.Mode) (expor
 	export.BuildTags = config.BuildTags
 	export.GOOS = config.GOOS
 	export.GOARCH = config.GOARCH
+	export.ArchiveOnly = config.ArchiveOnly
 	export.ExtraFiles = config.ExtraFiles
 	export.LLVMTarget = config.LLVMTarget
 	export.TargetABI = config.TargetABI

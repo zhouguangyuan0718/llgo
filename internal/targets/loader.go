@@ -134,6 +134,9 @@ func (l *Loader) mergeConfig(dst, src *Config) {
 	if src.GOARCH != "" {
 		dst.GOARCH = src.GOARCH
 	}
+	if src.ArchiveOnly {
+		dst.ArchiveOnly = true
+	}
 	if src.Libc != "" {
 		dst.Libc = src.Libc
 	}

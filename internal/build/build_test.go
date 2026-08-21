@@ -108,6 +108,19 @@ func TestResolveBuildConfigDefaultsAndValidation(t *testing.T) {
 	}
 }
 
+func TestValidateTargetBuildMode(t *testing.T) {
+	target := &crosscompile.Export{ArchiveOnly: true}
+	if err := validateTargetBuildMode(BuildModeCArchive, target); err != nil {
+		t.Fatalf("c-archive rejected: %v", err)
+	}
+	if err := validateTargetBuildMode(BuildModeExe, target); err == nil {
+		t.Fatal("executable build unexpectedly accepted for archive-only target")
+	}
+	if err := validateTargetBuildMode(BuildModeExe, &crosscompile.Export{}); err != nil {
+		t.Fatalf("ordinary executable target rejected: %v", err)
+	}
+}
+
 func TestNewDefaultConfDoesNotCreateBinDir(t *testing.T) {
 	binDir := filepath.Join(t.TempDir(), "not-created", "bin")
 	t.Setenv("GOBIN", binDir)

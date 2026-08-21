@@ -11,9 +11,10 @@ type Config struct {
 	Features   string `json:"features"`
 
 	// Build configuration
-	BuildTags []string `json:"build-tags"`
-	GOOS      string   `json:"goos"`
-	GOARCH    string   `json:"goarch"`
+	BuildTags   []string `json:"build-tags"`
+	GOOS        string   `json:"goos"`
+	GOARCH      string   `json:"goarch"`
+	ArchiveOnly bool     `json:"archive-only"`
 
 	// Compiler and linker configuration
 	Libc         string   `json:"libc"`

@@ -228,6 +228,13 @@ func TestUseTarget(t *testing.T) {
 			expectMarch: "-march=rv32imc", // ESP32-C3 uses rv32imc (no A extension)
 		},
 		{
+			name:        "ESP32-S3 IDF archive target",
+			targetName:  "esp32s3-idf",
+			expectError: false,
+			expectLLVM:  "xtensa-esp-elf",
+			expectCPU:   "esp32s3",
+		},
+		{
 			name:        "Nonexistent Target",
 			targetName:  "nonexistent-target",
 			expectError: true,
@@ -250,6 +257,9 @@ func TestUseTarget(t *testing.T) {
 			}
 			if !export.DebugInfo.AlwaysOmit {
 				t.Fatalf("target %s debug-info policy = %+v, want AlwaysOmit", tc.targetName, export.DebugInfo)
+			}
+			if tc.targetName == "esp32s3-idf" && !export.ArchiveOnly {
+				t.Fatal("ESP32-S3 IDF target is not marked archive-only")
 			}
 			if !slices.Contains(export.LDFLAGS, "-S") {
 				t.Fatalf("target %s declares AlwaysOmit without linker -S: %v", tc.targetName, export.LDFLAGS)

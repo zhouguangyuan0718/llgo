@@ -411,6 +411,9 @@ func Build(inv Invocation) ([]Package, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to setup crosscompile: %w", err)
 	}
+	if err := validateTargetBuildMode(conf.BuildMode, &export); err != nil {
+		return nil, err
+	}
 	applyBuildModeCompileFlags(conf.BuildMode, &export)
 	// Update GOOS/GOARCH from export if target was used
 	if conf.Target != "" && export.GOOS != "" {
@@ -802,6 +805,13 @@ func Build(inv Invocation) ([]Package, error) {
 	}
 
 	return allPkgs, nil
+}
+
+func validateTargetBuildMode(mode BuildMode, export *crosscompile.Export) error {
+	if export != nil && export.ArchiveOnly && mode != BuildModeCArchive {
+		return fmt.Errorf("selected target only supports -buildmode=%s", BuildModeCArchive)
+	}
+	return nil
 }
 
 // cHeaderPackages excludes the patched standard runtime implementation. Its
