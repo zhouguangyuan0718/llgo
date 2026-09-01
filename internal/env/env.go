@@ -73,6 +73,9 @@ func GoEnvWithEnv(env []string, vars ...string) ([]string, error) {
 }
 
 func LLGoCacheDir() string {
+	if dir := os.Getenv("LLGO_CACHE_DIR"); dir != "" {
+		return dir
+	}
 	userCacheDir, err := os.UserCacheDir()
 	if err != nil {
 		panic(err)

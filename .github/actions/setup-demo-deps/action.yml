@@ -18,26 +18,14 @@ runs:
       id: windows_python
       uses: actions/setup-python@v6
       with:
-        # Demo tools embed Python 3.12. Cross-architecture lanes install their
-        # native target and LLDB interpreters below. Asking an ARM64 runner to
-        # unpack the x64 hosted-tool-cache payload can crash PowerShell's ARM64
-        # CLR before emulation is involved, so that native runner is the sole
-        # exception.
+        # This x64 interpreter runs demo tooling and ESP image inspection on
+        # amd64/386. The ARM64 runner avoids unpacking the x64 hosted-tool-cache
+        # payload because that can crash its native PowerShell CLR. Target
+        # Python and LLVM 22 LLDB's Python 3.11 runtime are installed separately.
         python-version: "3.12"
         architecture: x64
         # setup-python otherwise replaces PKG_CONFIG_PATH, hiding the native
         # vcpkg metadata installed by setup-deps from LLGo's runtime build.
-        update-environment: false
-
-    - name: Set up LLDB Python 3.10 on Windows amd64
-      if: runner.os == 'Windows' && inputs.windows-abi == 'msvc' && inputs.windows-arch == 'amd64'
-      id: windows_lldb_python_amd64
-      uses: actions/setup-python@v6
-      with:
-        # LLVM's official 21.1.8 x64 release is built against Python 3.10;
-        # installing Python 3.12 cannot satisfy its python310.dll import.
-        python-version: "3.10"
-        architecture: x64
         update-environment: false
 
     - name: Set up target Python 3.12 on Windows
@@ -52,61 +40,27 @@ runs:
         architecture: ${{ inputs.windows-arch == 'arm64' && 'arm64' || 'x86' }}
         update-environment: false
 
-    - name: Set up LLDB Python 3.10 on Windows 386
-      if: runner.os == 'Windows' && inputs.windows-arch == '386'
-      id: windows_lldb_python_386
-      uses: actions/setup-python@v6
-      with:
-        # LLVM's official 21.1.8 Win32 LLDB links python310.dll. Keep this
-        # debugger runtime separate from the target Python 3.12 demo library.
-        python-version: "3.10"
-        architecture: x86
-        update-environment: false
-
-    - name: Set up LLDB Python 3.11 on Windows ARM64
-      if: runner.os == 'Windows' && inputs.windows-arch == 'arm64'
+    - name: Set up LLDB Python 3.11 on Windows
+      if: runner.os == 'Windows' && (inputs.windows-abi == 'msvc' || inputs.windows-arch != 'amd64')
       id: windows_lldb_python
       uses: actions/setup-python@v6
       with:
-        # LLVM's official 21.1.8 Windows-on-Arm LLDB links python311.dll.
-        # 3.11.9 is the final ARM64 artifact in actions/python-versions.
+        # LLVM 22.1.8's official win64 and Windows-on-Arm LLDB packages both
+        # link python311.dll. The 386 lane uses the official x64 debugger under
+        # WoW64 because LLVM 22 has no official Win32 LLDB package.
         python-version: "3.11.9"
-        architecture: arm64
+        architecture: ${{ inputs.windows-arch == 'arm64' && 'arm64' || 'x64' }}
         update-environment: false
 
-    - name: Configure LLDB Python on Windows ARM64
-      if: runner.os == 'Windows' && inputs.windows-arch == 'arm64'
+    - name: Configure LLDB Python on Windows
+      if: runner.os == 'Windows' && (inputs.windows-abi == 'msvc' || inputs.windows-arch != 'amd64')
       shell: pwsh
       run: |
         $ErrorActionPreference = "Stop"
         $python = "${{ steps.windows_lldb_python.outputs.python-path }}"
         $prefix = (& $python -c "import sys; print(sys.base_prefix)").Trim()
         if (-not (Test-Path (Join-Path $prefix "python311.dll"))) {
-          throw "The native ARM64 LLDB Python runtime is incomplete: $prefix"
-        }
-        Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_WINDOWS_LLDB_PYTHON_HOME=$prefix"
-
-    - name: Configure LLDB Python on Windows 386
-      if: runner.os == 'Windows' && inputs.windows-arch == '386'
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = "Stop"
-        $python = "${{ steps.windows_lldb_python_386.outputs.python-path }}"
-        $prefix = (& $python -c "import sys; print(sys.base_prefix)").Trim()
-        if (-not (Test-Path (Join-Path $prefix "python310.dll"))) {
-          throw "The native x86 LLDB Python runtime is incomplete: $prefix"
-        }
-        Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_WINDOWS_LLDB_PYTHON_HOME=$prefix"
-
-    - name: Configure LLDB Python on Windows amd64
-      if: runner.os == 'Windows' && inputs.windows-abi == 'msvc' && inputs.windows-arch == 'amd64'
-      shell: pwsh
-      run: |
-        $ErrorActionPreference = "Stop"
-        $python = "${{ steps.windows_lldb_python_amd64.outputs.python-path }}"
-        $prefix = (& $python -c "import sys; print(sys.base_prefix)").Trim()
-        if (-not (Test-Path (Join-Path $prefix "python310.dll"))) {
-          throw "The native x64 LLDB Python runtime is incomplete: $prefix"
+          throw "The LLVM 22 LLDB Python runtime is incomplete: $prefix"
         }
         Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_WINDOWS_LLDB_PYTHON_HOME=$prefix"
 

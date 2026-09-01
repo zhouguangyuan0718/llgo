@@ -4,7 +4,7 @@ inputs:
   llvm-version:
     description: "LLVM version to install"
     required: true
-    default: "21"
+    default: "22"
   install-llvm:
     description: "Whether to install LLVM"
     required: false
@@ -40,23 +40,22 @@ runs:
       uses: actions/cache/restore@v4
       with:
         # Cache the hash-pinned release payload rather than its extracted tree.
-        # GitHub's Windows cache archive did not round-trip every executable
-        # from the LLVM development package, notably llvm-config.exe.
-        path: ${{ runner.tool_cache }}\llgo-llvm-archives\clang+llvm-21.1.8-x86_64-pc-windows-msvc.tar.xz
-        key: llgo-llvm-21.1.8-full-target-windows-x64-749d22f565fcd5718dbed06512572d0e5353b502c03fe1f7f17ee8b8aca21a47-archive-v1
+        # This also avoids relying on archive round-tripping of executables.
+        path: ${{ runner.tool_cache }}\llgo-llvm-archives\clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
+        key: llgo-llvm-22.1.8-full-target-windows-x64-d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234-archive-v1
 
     - name: Install full-target Windows LLVM
       if: runner.os == 'Windows' && inputs.install-llvm == 'true' && inputs.windows-abi == 'msvc'
       shell: pwsh
       env:
-        # Use the official development archive rather than the smaller Windows
-        # installer: LLGo needs llvm-config, headers, static libraries, and the
-        # WebAssembly backend from the same LLVM 21 build.
-        LLVM_VERSION: "21.1.8"
-        LLVM_ARCHIVE_SHA256: 749d22f565fcd5718dbed06512572d0e5353b502c03fe1f7f17ee8b8aca21a47
+        # The development archive contains llvm-config, headers, libraries,
+        # Clang, LLD, and the WebAssembly backend required by LLGo's Windows
+        # host and WASI cross-compilation paths.
+        LLVM_VERSION: "22.1.8"
+        LLVM_ARCHIVE_SHA256: d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234
       run: |
         $ErrorActionPreference = "Stop"
-        if ("${{ inputs.llvm-version }}" -ne "21") {
+        if ("${{ inputs.llvm-version }}" -ne "22") {
           throw "Unsupported Windows LLVM version: ${{ inputs.llvm-version }}"
         }
 
@@ -119,33 +118,35 @@ runs:
       if: runner.os == 'Windows' && inputs.install-llvm == 'true' && inputs.windows-abi == 'msvc' && steps.windows_llvm_cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
-        path: ${{ runner.tool_cache }}\llgo-llvm-archives\clang+llvm-21.1.8-x86_64-pc-windows-msvc.tar.xz
-        key: llgo-llvm-21.1.8-full-target-windows-x64-749d22f565fcd5718dbed06512572d0e5353b502c03fe1f7f17ee8b8aca21a47-archive-v1
+        path: ${{ runner.tool_cache }}\llgo-llvm-archives\clang+llvm-22.1.8-x86_64-pc-windows-msvc.tar.xz
+        key: llgo-llvm-22.1.8-full-target-windows-x64-d96c2cc1736f4eb7fa43cb9bbdf56d93551a9ae0a9aadb9c99c3c3b2b712a234-archive-v1
 
-    - name: Cache target-native Windows LLVM support
-      if: runner.os == 'Windows' && inputs.install-llvm == 'true' && inputs.windows-arch != 'amd64'
+    - name: Cache Windows LLDB and target builtins
+      if: runner.os == 'Windows' && inputs.install-llvm == 'true' && (inputs.windows-abi == 'msvc' || inputs.windows-arch != 'amd64')
       id: windows_target_llvm_cache
       uses: actions/cache/restore@v4
       with:
-        path: ${{ runner.tool_cache }}\llgo-compiler-rt\21.1.8\${{ inputs.windows-arch }}
-        key: ${{ inputs.windows-arch == 'arm64' && 'llgo-compiler-rt-21.1.8-windows-arm64-1a770a49460b73667c1750b79f90e7027ead468f966c5d30e180cae19f61d91e-native-lldb-v1' || 'llgo-compiler-rt-21.1.8-windows-386-0492c5c292e515ebbbc2533671e54c5895fe209e534812313f64257407233181-native-lldb-v1' }}
+        path: ${{ runner.tool_cache }}\llgo-windows-support\22.1.8\${{ inputs.windows-arch }}
+        key: llgo-windows-support-22.1.8-${{ inputs.windows-arch }}-16e5709785fef73c854646241c4a92c5cd574318d1b33c63330dd7721903e55c-76f44ef1ba6eeb5a65904e9500f042f588fade49952778ce48f0374daa934396-b9b68a4d276e16fa25802aaba458e4638f64b3884c290aaccdc2d87083b6ca35-v1
 
-    - name: Install target-native Windows LLVM support
-      if: runner.os == 'Windows' && inputs.install-llvm == 'true' && inputs.windows-arch != 'amd64' && steps.windows_target_llvm_cache.outputs.cache-hit != 'true'
+    - name: Install Windows LLDB and target builtins
+      if: runner.os == 'Windows' && inputs.install-llvm == 'true' && (inputs.windows-abi == 'msvc' || inputs.windows-arch != 'amd64') && steps.windows_target_llvm_cache.outputs.cache-hit != 'true'
       shell: pwsh
       env:
-        LLVM_VERSION: "21.1.8"
-        LLVM_INSTALLER_ARCH: ${{ inputs.windows-arch == 'arm64' && 'woa64' || 'win32' }}
-        LLVM_INSTALLER_SHA256: ${{ inputs.windows-arch == 'arm64' && '1a770a49460b73667c1750b79f90e7027ead468f966c5d30e180cae19f61d91e' || '0492c5c292e515ebbbc2533671e54c5895fe209e534812313f64257407233181' }}
-        LLVM_BUILTINS_ARCH: ${{ inputs.windows-arch == 'arm64' && 'aarch64' || 'i386' }}
+        LLVM_VERSION: "22.1.8"
+        LLVM_INSTALLER_ARCH: ${{ inputs.windows-arch == 'arm64' && 'woa64' || 'win64' }}
+        LLVM_INSTALLER_SHA256: ${{ inputs.windows-arch == 'arm64' && '76f44ef1ba6eeb5a65904e9500f042f588fade49952778ce48f0374daa934396' || '16e5709785fef73c854646241c4a92c5cd574318d1b33c63330dd7721903e55c' }}
+        LLVM_BUILTINS_ARCH: ${{ inputs.windows-arch == 'arm64' && 'aarch64' || inputs.windows-arch == 'amd64' && 'x86_64' || 'i386' }}
+        LLVM_MINGW_VERSION: "20260616"
+        LLVM_MINGW_SHA256: b9b68a4d276e16fa25802aaba458e4638f64b3884c290aaccdc2d87083b6ca35
       run: |
         $ErrorActionPreference = "Stop"
 
         # The upstream x64 full-target archive supplies the host LLVM tools but
-        # only x64 compiler-rt. The MSVC profile needs the target builtins from
-        # the matching official package. Both Windows ABIs use its target-native
-        # LLDB: the x64 debugger cannot reliably inspect ARM64 register variables
-        # or cross the WoW64 exception dispatcher into a 32-bit source frame.
+        # omits LLDB and only carries x64 compiler-rt. Official LLVM installers
+        # supply x64/ARM64 LLDB and builtins. LLVM 22 has no Win32 installer, so
+        # the 386 lane takes the exact LLVM 22.1.8 i386 builtins from the pinned
+        # llvm-mingw release and qualifies the official x64 LLDB under WoW64.
         $installerName = "LLVM-$env:LLVM_VERSION-$env:LLVM_INSTALLER_ARCH.exe"
         $installer = Join-Path $env:RUNNER_TEMP $installerName
         $url = "https://github.com/llvm/llvm-project/releases/download/llvmorg-$env:LLVM_VERSION/$installerName"
@@ -163,26 +164,47 @@ runs:
         if (-not (Test-Path $sevenZip)) {
           throw "7-Zip was not found at $sevenZip"
         }
-        $builtinsRelative = "lib\clang\21\lib\windows\clang_rt.builtins-$env:LLVM_BUILTINS_ARCH.lib"
+        $builtinsRelative = "lib\clang\22\lib\windows\clang_rt.builtins-$env:LLVM_BUILTINS_ARCH.lib"
         $extractPaths = @(
-          $builtinsRelative,
           "bin\lldb.exe",
           "bin\liblldb.dll",
           "bin\lldb-argdumper.exe",
           "bin\lldb-server.exe",
           "lib\site-packages\lldb\*"
         )
+        if ("${{ inputs.windows-arch }}" -ne "386") {
+          $extractPaths += $builtinsRelative
+        }
         & $sevenZip x -y "-o$extractRoot" $installer @extractPaths
         if ($LASTEXITCODE -ne 0) {
           throw "Extracting LLVM ${{ inputs.windows-arch }} support failed with exit code $LASTEXITCODE"
         }
-        $source = Join-Path $extractRoot $builtinsRelative
-        if (-not (Test-Path $source)) {
-          throw "The LLVM ${{ inputs.windows-arch }} compiler-rt builtins were not found at $source"
-        }
-        $cacheRoot = Join-Path $env:RUNNER_TOOL_CACHE "llgo-compiler-rt\$env:LLVM_VERSION\${{ inputs.windows-arch }}"
+        $cacheRoot = Join-Path $env:RUNNER_TOOL_CACHE "llgo-windows-support\$env:LLVM_VERSION\${{ inputs.windows-arch }}"
         New-Item -ItemType Directory -Force $cacheRoot | Out-Null
-        Copy-Item -LiteralPath $source -Destination $cacheRoot
+        if ("${{ inputs.windows-arch }}" -ne "amd64") {
+          $source = Join-Path $extractRoot $builtinsRelative
+          if ("${{ inputs.windows-arch }}" -eq "386") {
+            $llvmMingwAsset = "llvm-mingw-$env:LLVM_MINGW_VERSION-ucrt-x86_64.zip"
+            $llvmMingwArchive = Join-Path $env:RUNNER_TEMP $llvmMingwAsset
+            $llvmMingwURL = "https://github.com/mstorsjo/llvm-mingw/releases/download/$env:LLVM_MINGW_VERSION/$llvmMingwAsset"
+            & curl.exe --fail --location --retry 5 --retry-all-errors --output $llvmMingwArchive $llvmMingwURL
+            if ($LASTEXITCODE -ne 0) {
+              throw "Downloading the LLVM 22 i386 builtins failed with exit code $LASTEXITCODE"
+            }
+            $llvmMingwActual = (Get-FileHash -Algorithm SHA256 $llvmMingwArchive).Hash
+            if (-not $llvmMingwActual.Equals($env:LLVM_MINGW_SHA256, [StringComparison]::OrdinalIgnoreCase)) {
+              throw "llvm-mingw SHA-256 is $llvmMingwActual, want $env:LLVM_MINGW_SHA256"
+            }
+            $llvmMingwRoot = Join-Path $env:RUNNER_TEMP "llgo-llvm-mingw-builtins"
+            Expand-Archive -LiteralPath $llvmMingwArchive -DestinationPath $llvmMingwRoot
+            $source = Get-ChildItem -LiteralPath $llvmMingwRoot -Recurse -File -Filter "libclang_rt.builtins-i386.a" |
+              Select-Object -First 1 -ExpandProperty FullName
+          }
+          if (-not $source -or -not (Test-Path $source)) {
+            throw "The LLVM ${{ inputs.windows-arch }} compiler-rt builtins were not found"
+          }
+          Copy-Item -LiteralPath $source -Destination (Join-Path $cacheRoot "clang_rt.builtins-$env:LLVM_BUILTINS_ARCH.lib")
+        }
         $lldbRoot = Join-Path $cacheRoot "lldb"
         New-Item -ItemType Directory -Force $lldbRoot | Out-Null
         Copy-Item -LiteralPath (Join-Path $extractRoot "bin") -Destination $lldbRoot -Recurse
@@ -197,12 +219,12 @@ runs:
           }
         }
 
-    - name: Save target-native Windows LLVM support
-      if: runner.os == 'Windows' && inputs.install-llvm == 'true' && inputs.windows-arch != 'amd64' && steps.windows_target_llvm_cache.outputs.cache-hit != 'true'
+    - name: Save Windows LLDB and target builtins
+      if: runner.os == 'Windows' && inputs.install-llvm == 'true' && (inputs.windows-abi == 'msvc' || inputs.windows-arch != 'amd64') && steps.windows_target_llvm_cache.outputs.cache-hit != 'true'
       uses: actions/cache/save@v4
       with:
-        path: ${{ runner.tool_cache }}\llgo-compiler-rt\21.1.8\${{ inputs.windows-arch }}
-        key: ${{ inputs.windows-arch == 'arm64' && 'llgo-compiler-rt-21.1.8-windows-arm64-1a770a49460b73667c1750b79f90e7027ead468f966c5d30e180cae19f61d91e-native-lldb-v1' || 'llgo-compiler-rt-21.1.8-windows-386-0492c5c292e515ebbbc2533671e54c5895fe209e534812313f64257407233181-native-lldb-v1' }}
+        path: ${{ runner.tool_cache }}\llgo-windows-support\22.1.8\${{ inputs.windows-arch }}
+        key: llgo-windows-support-22.1.8-${{ inputs.windows-arch }}-16e5709785fef73c854646241c4a92c5cd574318d1b33c63330dd7721903e55c-76f44ef1ba6eeb5a65904e9500f042f588fade49952778ce48f0374daa934396-b9b68a4d276e16fa25802aaba458e4638f64b3884c290aaccdc2d87083b6ca35-v1
 
     - name: Cache Windows MSVC dependencies
       if: runner.os == 'Windows' && inputs.install-llvm == 'true' && inputs.windows-abi == 'msvc'
@@ -263,8 +285,8 @@ runs:
       if: runner.os == 'Windows' && inputs.install-llvm == 'true' && inputs.windows-abi == 'msvc'
       shell: pwsh
       env:
-        LLVM_VERSION: "21.1.8"
-        LLVM_TARGET_VERSION: "21.1.8"
+        LLVM_VERSION: "22.1.8"
+        LLVM_TARGET_VERSION: "22.1.8"
         VCPKG_MANIFEST_HASH: ${{ hashFiles('.github/windows/vcpkg/vcpkg.json') }}
       run: |
         $ErrorActionPreference = "Stop"
@@ -288,8 +310,6 @@ runs:
           throw "The native pkgconf executable was not installed at $pkgconf"
         }
 
-        # Keep this pinned lane on VS 2022 instead of selecting a newer toolset
-        # merely because the runner image also happens to contain one.
         # LLGo itself and the LLVM Go bindings are x64 host programs even when
         # this job will later execute ARM64 or 386 output. Target SDK variables
         # are activated only after the host compiler has been installed.
@@ -357,7 +377,7 @@ runs:
         $fileCheckRoot = Join-Path $env:RUNNER_TEMP "llgo-filecheck"
         $fileCheckSource = Join-Path $fileCheckRoot "FileCheck.cpp"
         $fileCheck = Join-Path $fileCheckRoot "FileCheck.exe"
-        $fileCheckSourceSHA256 = "7a0d8a2989d497b679efdc93244300ba4c7cad531ba90ba82c0af106cf864466"
+        $fileCheckSourceSHA256 = "394d3744e5b88e72e08693ae35510a2cea8a7bae209dbd31e08c2d288ef15b17"
         New-Item -ItemType Directory -Force $fileCheckRoot | Out-Null
         $fileCheckURL = "https://raw.githubusercontent.com/llvm/llvm-project/llvmorg-$env:LLVM_VERSION/llvm/utils/FileCheck/FileCheck.cpp"
         & curl.exe --fail --location --retry 5 --retry-all-errors --output $fileCheckSource $fileCheckURL
@@ -447,7 +467,7 @@ runs:
         # Go's Windows external linker detects LLD through the compiler command
         # prefix. Without this option it emits a GNU ld linker script that the
         # native MSVC linker dialect cannot consume.
-        # The upstream LLVM 21 development archive builds its static libraries
+        # The upstream LLVM 22 development archive builds its static libraries
         # against the static MSVC runtime. Match it in FileCheck and all host
         # cgo objects so lld-link sees one RuntimeLibrary directive.
         Add-Content -Encoding utf8 $env:GITHUB_ENV "CC=clang --target=x86_64-pc-windows-msvc -fuse-ld=lld -fms-runtime-lib=static"
@@ -465,14 +485,9 @@ runs:
         # last so plain `pkg-config` always selects the profile-local command.
         Add-Content -Encoding utf8 $env:GITHUB_PATH $nativeTools
 
-        $lldb = Join-Path $llvmBin "lldb.exe"
-        if ($target.GoArch -ne "amd64") {
-          $lldbRoot = Join-Path $env:RUNNER_TOOL_CACHE "llgo-compiler-rt\$env:LLVM_TARGET_VERSION\$($target.GoArch)\lldb"
-          $lldb = Join-Path $lldbRoot "bin\lldb.exe"
-          Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_WINDOWS_LLDB_PYTHONPATH=$(Join-Path $lldbRoot 'lib\site-packages')"
-        } else {
-          Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_WINDOWS_LLDB_PYTHONPATH=$(Join-Path $llvmRoot 'lib\site-packages')"
-        }
+        $lldbRoot = Join-Path $env:RUNNER_TOOL_CACHE "llgo-windows-support\$env:LLVM_TARGET_VERSION\$($target.GoArch)\lldb"
+        $lldb = Join-Path $lldbRoot "bin\lldb.exe"
+        Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_WINDOWS_LLDB_PYTHONPATH=$(Join-Path $lldbRoot 'lib\site-packages')"
         if (-not (Test-Path $lldb)) {
           throw "lldb.exe was not found for Windows $($target.GoArch)"
         }
@@ -481,6 +496,14 @@ runs:
         $version = (& $llvmConfig --version).Trim()
         if ($version -ne $env:LLVM_VERSION) {
           throw "Expected LLVM $env:LLVM_VERSION, got $version"
+        }
+        $clangVersion = (& (Join-Path $llvmBin "clang.exe") -dumpversion).Trim()
+        if ($clangVersion -ne $env:LLVM_VERSION) {
+          throw "Expected Clang $env:LLVM_VERSION, got $clangVersion"
+        }
+        $lldVersion = (& (Join-Path $llvmBin "lld-link.exe") --version).Trim()
+        if ($lldVersion -notmatch "^LLD $([regex]::Escape($env:LLVM_VERSION))(?:[ .]|$)") {
+          throw "Expected LLD $env:LLVM_VERSION, got $lldVersion"
         }
         $targetsBuilt = @((& $llvmConfig --targets-built) -split '\s+' | Where-Object { $_ })
         if ($targetsBuilt -notcontains "WebAssembly") {
@@ -497,7 +520,7 @@ runs:
         $targetBuiltins = (& (Join-Path $llvmBin "clang.exe") "--target=$($target.Triple)" --rtlib=compiler-rt -print-libgcc-file-name).Trim()
         if ($target.GoArch -ne "amd64" -and -not (Test-Path $targetBuiltins)) {
           $builtinsArch = if ($target.GoArch -eq "arm64") { "aarch64" } else { "i386" }
-          $cachedBuiltins = Join-Path $env:RUNNER_TOOL_CACHE "llgo-compiler-rt\$env:LLVM_TARGET_VERSION\$($target.GoArch)\clang_rt.builtins-$builtinsArch.lib"
+          $cachedBuiltins = Join-Path $env:RUNNER_TOOL_CACHE "llgo-windows-support\$env:LLVM_TARGET_VERSION\$($target.GoArch)\clang_rt.builtins-$builtinsArch.lib"
           if (-not (Test-Path $cachedBuiltins)) {
             throw "The cached Windows $($target.GoArch) compiler-rt builtins were not found at $cachedBuiltins"
           }
@@ -536,10 +559,10 @@ runs:
 
         llvm_major="${{ inputs.llvm-version }}"
         case "$llvm_major" in
-          21)
-            llvm_version=21.1.8
-            package_version=21.1.8-4
-            runtime_package_version=21.1.8-1
+          22)
+            llvm_version=22.1.8
+            package_version=22.1.8-2
+            runtime_package_version=22.1.8-1
             ;;
           *)
             echo "unsupported Windows LLVM version: $llvm_major" >&2
@@ -567,8 +590,8 @@ runs:
           "compiler-rt-$package_version"
           "llvm-$package_version"
           "llvm-libs-$package_version"
-          "lld-$package_version"
           "llvm-tools-$package_version"
+          "lld-$package_version"
           "libc++-$runtime_package_version"
           "libunwind-$runtime_package_version"
         )
@@ -577,11 +600,12 @@ runs:
           urls+=("$repo/$prefix-$package-any.pkg.tar.zst")
         done
 
-        # Keep only the mutually versioned LLVM split packages on archived
-        # URLs. Their ordinary runtime dependencies have no version constraint
-        # in the package metadata, so let pacman resolve current versions
-        # instead of relying on old package files that MSYS2 eventually prunes.
-        pacman --noconfirm -U "${urls[@]}"
+        # libc++ supplies the required compiler runtime. Satisfy the package
+        # metadata while installing the exact, mutually consistent LLVM set.
+        assumed_cc_runtime="$prefix-cc-libs=$llvm_version"
+        pacman --noconfirm -U \
+          --assume-installed "$assumed_cc_runtime" \
+          "${urls[@]}"
         pacman --noconfirm -S --needed \
           "$prefix-pkgconf" \
           "$prefix-sqlite3" \
@@ -609,9 +633,9 @@ runs:
             exit 1
           fi
         done
-        for package in libxml2 libuv gc libatomic_ops cjson; do
-          pacman -Q "$prefix-$package"
-        done
+        test "$(llvm-config --version)" = "$llvm_version"
+        test "$(clang -dumpversion)" = "$llvm_version"
+        test "$(ld.lld --version | awk '{print $2}')" = "$llvm_version"
 
         # MSYS2 does not ship llvm.pc. Generate both a selected-version file
         # and a stable alias from its authoritative llvm-config in CLANG64's
@@ -699,7 +723,7 @@ runs:
         Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_MINGW_HOST_PKGCONF=$pkgconf"
         Add-Content -Encoding utf8 $env:GITHUB_ENV "LLGO_MINGW_HOST_ROOT=$mingwRoot"
         if ("${{ inputs.windows-arch }}" -ne "amd64") {
-          $lldbRoot = Join-Path $env:RUNNER_TOOL_CACHE "llgo-compiler-rt\21.1.8\${{ inputs.windows-arch }}\lldb"
+          $lldbRoot = Join-Path $env:RUNNER_TOOL_CACHE "llgo-windows-support\22.1.8\${{ inputs.windows-arch }}\lldb"
           $lldb = Join-Path $lldbRoot "bin\lldb.exe"
           if (-not (Test-Path $lldb)) {
             throw "lldb.exe was not found for Windows ${{ inputs.windows-arch }}"
@@ -749,14 +773,21 @@ runs:
           llvm_bin="$(brew --prefix "${llvm_formula}")/bin"
           lld_bin="$(brew --prefix "${lld_formula}")/bin"
           echo "${llvm_bin}" >> "$GITHUB_PATH"
+          echo "${lld_bin}" >> "$GITHUB_PATH"
 
           # Print resolved toolchain versions for CI diagnostics.
           echo "LLVM/LLD versions:"
           brew list --versions "${llvm_formula}" "${lld_formula}"
           clang_version="$("${llvm_bin}/clang" --version | head -n 1)"
           lld_version="$("${lld_bin}/ld.lld" --version | head -n 1)"
+          lldb_path="$(xcrun --find lldb)"
+          lldb_version="$("${lldb_path}" --version | head -n 1)"
           echo "clang: ${clang_version}"
           echo "ld.lld: ${lld_version}"
+          echo "lldb: ${lldb_version}"
+          test "$("${llvm_bin}/clang" -dumpversion | cut -d. -f1)" = "${{inputs.llvm-version}}"
+          test "$("${lld_bin}/ld.lld" --version | awk '{print $2}' | cut -d. -f1)" = "${{inputs.llvm-version}}"
+          test -x "${lldb_path}"
           echo "linked ld.lld path: $(command -v ld.lld || true)"
         fi
         
@@ -785,7 +816,7 @@ runs:
           echo "deb http://apt.llvm.org/$(lsb_release -cs)/ llvm-toolchain-$(lsb_release -cs)-${{inputs.llvm-version}} main" | sudo tee /etc/apt/sources.list.d/llvm.list
           wget -O - https://apt.llvm.org/llvm-snapshot.gpg.key | sudo apt-key add -
           sudo apt-get update
-          sudo apt-get install -y llvm-${{inputs.llvm-version}}-dev clang-${{inputs.llvm-version}} libclang-${{inputs.llvm-version}}-dev lld-${{inputs.llvm-version}} libunwind-${{inputs.llvm-version}}-dev libc++-${{inputs.llvm-version}}-dev
+          sudo apt-get install -y llvm-${{inputs.llvm-version}}-dev clang-${{inputs.llvm-version}} libclang-${{inputs.llvm-version}}-dev lld-${{inputs.llvm-version}} lldb-${{inputs.llvm-version}} libunwind-${{inputs.llvm-version}}-dev libc++-${{inputs.llvm-version}}-dev
           echo "PATH=/usr/lib/llvm-${{inputs.llvm-version}}/bin:$PATH" >> $GITHUB_ENV
         else
           sudo apt-get update

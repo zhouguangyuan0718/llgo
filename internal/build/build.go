@@ -971,6 +971,15 @@ func parseNativeToolchainInput(commands commandEnv, options LinkOptions, resolve
 func validateLLVMToolchain(export crosscompile.Export) error {
 	if export.ClangRoot != "" {
 		binDir := filepath.Join(export.ClangRoot, "bin")
+		if export.ExternalLLVMMajor != 0 {
+			linkedMajor, err := strconv.Atoi(strings.SplitN(gllvm.Version, ".", 2)[0])
+			if err != nil {
+				return fmt.Errorf("parse linked LLVM version %q: %w", gllvm.Version, err)
+			}
+			if export.ExternalLLVMMajor != linkedMajor {
+				return fmt.Errorf("external LLVM %d payload is incompatible with linked LLVM %d: LLGo passes version-specific LLVM IR to the external compiler", export.ExternalLLVMMajor, linkedMajor)
+			}
+		}
 		return envllvm.ValidateToolchainMajor(gllvm.Version,
 			filepath.Join(binDir, "llvm-config"),
 			filepath.Join(binDir, "clang"),

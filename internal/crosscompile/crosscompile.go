@@ -51,6 +51,11 @@ type Export struct {
 	ExtraFiles     []string // Extra files to compile and link (e.g., .s, .c files)
 	ClangRoot      string   // Root directory of custom clang installation
 	ClangBinPath   string   // Path to clang binary directory
+	// ExternalLLVMMajor is the LLVM major promised by the revision-locked
+	// payload contract. It is zero for the ordinary host toolchain. Embedded
+	// tools are validated against both this value and the LLVM linked into
+	// LLGo because the pipeline passes version-specific textual IR between them.
+	ExternalLLVMMajor int
 
 	LLVMTarget   string // LLVM Target
 	CPU          string // LLVM target CPU used by external code generation and cache identity
@@ -241,32 +246,39 @@ func getMacOSSysroot() (string, error) {
 
 // getESPClangRoot returns the ESP Clang root directory, checking LLGoROOT first,
 // then downloading if needed and platform is supported
-func getESPClangRoot(forceEspClang bool) (clangRoot string, err error) {
+func getESPClangRoot(forceEspClang bool) (clangRoot string, artifact llvmpayload.Artifact, err error) {
 	llgoRoot := env.LLGoROOT()
-
-	// First check if clang exists in LLGoROOT
 	espClangRoot := filepath.Join(llgoRoot, envllvm.CrosscompileClangPath)
-	if _, err = os.Stat(espClangRoot); err == nil {
+	_, rootErr := os.Stat(espClangRoot)
+	if rootErr != nil && !errors.Is(rootErr, fs.ErrNotExist) {
+		err = rootErr
+		return
+	}
+	if errors.Is(rootErr, fs.ErrNotExist) && !forceEspClang {
+		return
+	}
+
+	payload, payloadErr := llvmpayload.ForLLVMVersion(gllvm.Version)
+	if payloadErr != nil {
+		err = payloadErr
+		return
+	}
+	platformSuffix := getESPClangPlatform(runtime.GOOS, runtime.GOARCH)
+	if platformSuffix != "" {
+		artifact, err = resolveESPClangArtifact(payload, platformSuffix)
+		if err != nil {
+			return
+		}
+	}
+
+	// First check if clang exists in LLGoROOT.
+	if rootErr == nil {
 		clangRoot = espClangRoot
 		return
 	}
 
-	if !forceEspClang {
-		return "", nil
-	}
-
-	payload, err := llvmpayload.ForLLVMVersion(gllvm.Version)
-	if err != nil {
-		return "", err
-	}
-
 	// Try to download ESP Clang if platform is supported
-	platformSuffix := getESPClangPlatform(runtime.GOOS, runtime.GOARCH)
 	if platformSuffix != "" {
-		artifact, artifactErr := resolveESPClangArtifact(payload, platformSuffix)
-		if artifactErr != nil {
-			return "", artifactErr
-		}
 		cacheClangDir := filepath.Join(cacheRoot(), "crosscompile", "esp-clang-"+artifact.Version)
 		if _, err = os.Stat(cacheClangDir); err != nil {
 			if !errors.Is(err, fs.ErrNotExist) {
@@ -452,10 +464,12 @@ func useWithGOARMAndToolchain(goos, goarch, goarm string, wasiThreads, forceEspC
 	// Do not inspect an unrelated embedded Clang before that profile resolves.
 	var clangRoot string
 	if !(nativePlatformToolchain && goos == "windows") {
-		clangRoot, err = getESPClangRoot(forceEspClang)
+		var artifact llvmpayload.Artifact
+		clangRoot, artifact, err = getESPClangRoot(forceEspClang)
 		if err != nil {
 			return
 		}
+		export.ExternalLLVMMajor = artifact.LLVMMajor
 	}
 
 	// Set ClangRoot and CC if clang is available
@@ -714,12 +728,14 @@ func UseTarget(targetName string, level optlevel.Level, ltoMode lto.Mode) (expor
 		export.CC = "clang++"
 	} else {
 		var clangErr error
-		clangRoot, clangErr = getESPClangRoot(true)
+		var artifact llvmpayload.Artifact
+		clangRoot, artifact, clangErr = getESPClangRoot(true)
 		if clangErr != nil {
 			err = clangErr
 			return
 		}
 		export.ClangRoot = clangRoot
+		export.ExternalLLVMMajor = artifact.LLVMMajor
 		export.CC = filepath.Join(clangRoot, "bin", "clang++")
 	}
 
@@ -892,9 +908,10 @@ func UseTarget(targetName string, level optlevel.Level, ltoMode lto.Mode) (expor
 	}
 	var libcIncludeDir []string
 	var compiledLibraryKey string
+	var externalLLVMVersion string
 	if config.Libc != "" || config.RTLib != "" {
 		var compilerKey string
-		compilerKey, err = compilerCacheKey(export.CC)
+		compilerKey, externalLLVMVersion, err = compilerCacheIdentity(export.CC)
 		if err != nil {
 			return
 		}
@@ -934,7 +951,7 @@ func UseTarget(targetName string, level optlevel.Level, ltoMode lto.Mode) (expor
 		var compileConfig compile.CompileConfig
 		baseDir := filepath.Join(cacheRoot(), "crosscompile")
 
-		outputDir, compileConfig, err = getRTCompileConfigByName(baseDir, config.RTLib, config.LLVMTarget, compiledLibraryKey)
+		outputDir, compileConfig, err = getRTCompileConfigByName(baseDir, config.RTLib, config.LLVMTarget, compiledLibraryKey, externalLLVMVersion)
 		if err != nil {
 			return
 		}

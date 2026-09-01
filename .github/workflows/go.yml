@@ -15,6 +15,72 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  distribution-toolchains:
+    name: LLVM 22 packages (${{ matrix.distribution }})
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - distribution: Fedora 44
+            image: fedora:44
+            command: >-
+              dnf install -y llvm-devel clang-devel lld lldb libcxx-devel
+              llvm-libunwind-devel pkgconf-pkg-config gc-devel openssl-devel
+              libffi-devel libuv-devel cjson-devel sqlite-devel
+              zlib-ng-compat-devel &&
+              test "$(llvm-config --version | cut -d. -f1)" = 22 &&
+              test "$(clang -dumpversion | cut -d. -f1)" = 22 &&
+              test "$(ld.lld --version | awk '{print $2}' | cut -d. -f1)" = 22 &&
+              test "$(lldb --version | awk 'NR == 1 {print $3}' | cut -d. -f1)" = 22
+          - distribution: Alpine 3.24
+            image: alpine:3.24
+            command: >-
+              apk add --no-cache llvm22-dev clang22-dev lld22 lldb pkgconf gc-dev
+              libunwind-dev openssl-dev zlib-dev libffi-dev cjson-dev sqlite-dev libuv-dev &&
+              test "$(/usr/lib/llvm22/bin/llvm-config --version | cut -d. -f1)" = 22 &&
+              test "$(clang-22 -dumpversion | cut -d. -f1)" = 22 &&
+              test "$(ld.lld-22 --version | awk '{print $2}' | cut -d. -f1)" = 22 &&
+              test "$(lldb --version | awk 'NR == 1 {print $3}' | cut -d. -f1)" = 22
+    steps:
+      - name: Install and verify LLVM 22 packages
+        run: docker run --rm ${{ matrix.image }} sh -exc '${{ matrix.command }}'
+
+  development-container:
+    name: Development container (LLVM 22)
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v7
+      - name: Build the base development image
+        run: docker build --target base -f dev/Dockerfile.dev -t llgo-dev-llvm22 .
+      - name: Verify the development toolchain
+        run: |
+          docker run --rm llgo-dev-llvm22 sh -c \
+            'test "$(llvm-config --version | cut -d. -f1)" = 22 && test "$(go env GOVERSION)" = go1.27.0'
+
+  llvm21-compat:
+    name: Explicit LLVM 21 compatibility
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      GOFLAGS: -tags=llvm21
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install LLVM 21
+        uses: ./.github/actions/setup-deps
+        with:
+          llvm-version: 21
+      - name: Set up Go
+        uses: ./.github/actions/setup-go
+      - name: Build and test the retained explicit configuration
+        run: |
+          set -euo pipefail
+          test "$(llvm-config --version | cut -d. -f1)" = 21
+          go build -o "$RUNNER_TEMP/llgo-llvm21" ./cmd/llgo
+          "$RUNNER_TEMP/llgo-llvm21" version
+          go test ./internal/llvmpayload ./internal/crosscompile/compile/rtlib ./xtool/env/llvm
+
   test:
     name: test (${{ matrix.os }}${{ matrix.windows_abi && format(', {0}', matrix.windows_abi) || '' }}, LLVM ${{ matrix.llvm }}, Go current)
     # The known-good #172 Windows coverage run took about 56 minutes. Leave
@@ -28,14 +94,14 @@ jobs:
         # release. User-code compatibility is covered by LLGo's test matrix.
         include:
           - os: macos-latest
-            llvm: 21
+            llvm: 22
           - os: ubuntu-latest
-            llvm: 21
+            llvm: 22
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             windows_abi: msvc
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             windows_abi: mingw
     runs-on: ${{matrix.os}}
     steps:
@@ -170,7 +236,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup-deps
         with:
-          llvm-version: 21
+          llvm-version: 22
 
       - name: Set up Go
         uses: ./.github/actions/setup-go
@@ -189,7 +255,7 @@ jobs:
         run: |
           set -euo pipefail
 
-          llvm_config="$(command -v llvm-config || command -v llvm-config-21)"
+          llvm_config="$(command -v llvm-config || command -v llvm-config-22)"
           cmake -S ltoplugin -B ltoplugin/build \
             -DLLVM_DIR="$("${llvm_config}" --cmakedir)" \
             -DCMAKE_BUILD_TYPE=Release
@@ -239,6 +305,36 @@ jobs:
           files: coverage-dev-globaldce-unit.txt,coverage-dev-lto-globaldce-cl.txt,coverage-dev-lto-globaldce-symbols.txt,coverage-dev-lto-plugin-cl.txt
           flags: dev-lto-globaldce
 
+  lto-plugin-api:
+    name: LTO plugin API (${{ matrix.os }})
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, macos-latest, macos-15-intel]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v7
+      - name: Install LLVM 22
+        uses: ./.github/actions/setup-deps
+        with:
+          llvm-version: 22
+      - name: Build and load the pass plugin
+        shell: bash
+        run: |
+          set -euo pipefail
+          llvm_config="$(command -v llvm-config || command -v llvm-config-22)"
+          cmake -S ltoplugin -B ltoplugin/build \
+            -DLLVM_DIR="$($llvm_config --cmakedir)" \
+            -DCMAKE_BUILD_TYPE=Release
+          cmake --build ltoplugin/build --config Release
+          plugin="$(find ltoplugin/build -type f \( -name 'LLGOLTOPlugin.so' -o -name 'LLGOLTOPlugin.dylib' \) | head -n1)"
+          test -n "$plugin"
+          printf '%s\n' 'define void @f() { ret void }' > "$RUNNER_TEMP/llgo-lto-plugin.ll"
+          opt -load-pass-plugin="$plugin" \
+            -passes=llgo-lto-pre-globaldce -verify-each -disable-output \
+            "$RUNNER_TEMP/llgo-lto-plugin.ll"
+
   # Tests deletion of unreachable Go methods.
   # See https://github.com/xgo-dev/llgo/issues/1853.
   dev-go-methoddrop:
@@ -251,7 +347,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup-deps
         with:
-          llvm-version: 21
+          llvm-version: 22
 
       - name: Set up Go
         uses: ./.github/actions/setup-go

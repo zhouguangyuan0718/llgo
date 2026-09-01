@@ -15,9 +15,20 @@ import (
 	"github.com/xgo-dev/llgo/internal/crosscompile/compile/rtlib"
 )
 
-const testCompilerKey = "llvm-21.1.3-deadbeef"
+const (
+	testCompilerKey     = "llvm-21.1.3-deadbeef"
+	testCompilerVersion = "21.1.3"
+)
 
 func TestCompilerVersionCacheKey(t *testing.T) {
+	identityKey, identityVersion, err := compilerVersionIdentity("Espressif clang version 21.1.3 (abc123)", nil)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if identityVersion != testCompilerVersion || !strings.HasPrefix(identityKey, "llvm-21.1.3-") {
+		t.Fatalf("compiler identity = %q, %q", identityKey, identityVersion)
+	}
+
 	first, err := compilerVersionCacheKey("clang version 21.1.3 (https://example.test/llvm abc123)\nInstalledDir: /one", nil)
 	if err != nil {
 		t.Fatal(err)
@@ -155,21 +166,21 @@ func TestGetRTCompileConfigByName(t *testing.T) {
 	needSkipDownload = true
 
 	t.Run("EmptyName", func(t *testing.T) {
-		_, _, err := getRTCompileConfigByName(baseDir, "", target, testCompilerKey)
+		_, _, err := getRTCompileConfigByName(baseDir, "", target, testCompilerKey, testCompilerVersion)
 		if err == nil || err.Error() != "rt name cannot be empty" {
 			t.Errorf("Expected empty name error, got: %v", err)
 		}
 	})
 
 	t.Run("UnsupportedRT", func(t *testing.T) {
-		_, _, err := getRTCompileConfigByName(baseDir, "invalid", target, testCompilerKey)
+		_, _, err := getRTCompileConfigByName(baseDir, "invalid", target, testCompilerKey, testCompilerVersion)
 		if err == nil || err.Error() != "unsupported rt: invalid" {
 			t.Errorf("Expected unsupported rt error, got: %v", err)
 		}
 	})
 
 	t.Run("CompilerRT", func(t *testing.T) {
-		outputDir, cfg, err := getRTCompileConfigByName(baseDir, "compiler-rt", target, testCompilerKey)
+		outputDir, cfg, err := getRTCompileConfigByName(baseDir, "compiler-rt", target, testCompilerKey, testCompilerVersion)
 		if err != nil {
 			t.Fatalf("Unexpected error: %v", err)
 		}
@@ -179,7 +190,7 @@ func TestGetRTCompileConfigByName(t *testing.T) {
 		}
 		group := cfg.Groups[0]
 
-		compilerRTConfig, err := rtlib.GetCompilerRTConfig()
+		compilerRTConfig, err := rtlib.GetCompilerRTConfigForLLVMVersion(testCompilerVersion)
 		if err != nil {
 			t.Fatal(err)
 		}

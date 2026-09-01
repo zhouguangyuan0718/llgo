@@ -58,7 +58,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup-deps
         with:
-          llvm-version: 21
+          llvm-version: 22
           windows-abi: ${{ matrix.windows_abi }}
           windows-arch: ${{ matrix.windows_arch }}
 

@@ -27,5 +27,11 @@ require (
 
 replace github.com/xgo-dev/llgo/runtime => ./runtime
 
-// Temporary: use goplus/lib#27 until its LLVM 21 metadata is merged.
+// Temporary stacked-branch dependency: replace with the first goplus/lib
+// release containing its version-neutral Windows LLVM metadata before this PR
+// is merged.
 replace github.com/goplus/lib => github.com/zhouguangyuan0718/lib v0.0.0-20260901051643-a8f1f8266c99
+
+// Temporary stacked-branch dependency: replace with the first xgo-dev/llvm
+// release containing xgo-dev/llvm#51 before this PR is merged.
+replace github.com/xgo-dev/llvm => github.com/zhouguangyuan0718/go-llvm v0.0.0-20260901012627-e8df25dd9890

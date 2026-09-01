@@ -61,9 +61,9 @@ func TestParseMajorVersion(t *testing.T) {
 		version string
 		want    int
 	}{
-		{version: "21.1.8", want: 21},
-		{version: "Homebrew clang version 21.1.8", want: 21},
-		{version: "Homebrew LLD 21.1.8 (compatible with GNU linkers)", want: 21},
+		{version: "22.1.8", want: 22},
+		{version: "Homebrew clang version 22.1.8", want: 22},
+		{version: "Homebrew LLD 22.1.8 (compatible with GNU linkers)", want: 22},
 	}
 	for _, test := range tests {
 		got, err := parseMajorVersion(test.version)
@@ -81,13 +81,13 @@ func TestValidateToolchainMajor(t *testing.T) {
 		t.Skip("test helper uses a shell script")
 	}
 
-	matching := writeVersionTool(t, "clang 21.1.3")
-	if err := ValidateToolchainMajor("21.1.8", matching); err != nil {
+	matching := writeVersionTool(t, "clang 22.1.8")
+	if err := ValidateToolchainMajor("22.1.8", matching); err != nil {
 		t.Fatalf("matching major rejected: %v", err)
 	}
 
-	mismatched := writeVersionTool(t, "clang 19.1.7")
-	err := ValidateToolchainMajor("21.1.8", mismatched)
+	mismatched := writeVersionTool(t, "clang 21.1.8")
+	err := ValidateToolchainMajor("22.1.8", mismatched)
 	if err == nil || !strings.Contains(err.Error(), "LLVM major version mismatch") {
 		t.Fatalf("mismatched major error = %v", err)
 	}

@@ -95,16 +95,38 @@ download_and_extract() {
     tar -xJf "${archive_file}" -C ".sysroot/${os}/${arch}/crosscompile/clang" --strip-components=1
     rm -f "${archive_file}"
     archive_file=""
-    
-    if [[ ! -f ".sysroot/${os}/${arch}/crosscompile/clang/bin/clang++" ]]; then
+
+    local toolchain_root=".sysroot/${os}/${arch}/crosscompile/clang"
+    local manifest="$toolchain_root/LLGO-LLVM-MANIFEST.txt"
+    if [[ ! -x "$toolchain_root/bin/clang++" ]]; then
         echo "Error: clang++ not found in ${platform} toolchain"
         exit 1
     fi
+    [[ -f "$manifest" ]] || {
+        echo "Error: payload manifest not found for ${platform}" >&2
+        exit 1
+    }
+    grep -Fx "payload_version=${ESP_CLANG_VERSION}" "$manifest"
+    grep -Eq "^llvm_expected_version=${ESP_CLANG_LLVM_MAJOR}\\." "$manifest"
+    test "$("$toolchain_root/bin/llvm-config" --version | cut -d. -f1)" = "$ESP_CLANG_LLVM_MAJOR"
+    test "$("$toolchain_root/bin/clang" -dumpversion | cut -d. -f1)" = "$ESP_CLANG_LLVM_MAJOR"
+    "$toolchain_root/bin/ld.lld" --version
+    local targets
+    targets="$("$toolchain_root/bin/llvm-config" --targets-built)"
+    for target in X86 ARM AArch64 AVR Mips RISCV WebAssembly Xtensa; do
+        [[ " $targets " == *" $target "* ]] || {
+            echo "Error: payload ${platform} is missing LLVM target ${target}: ${targets}" >&2
+            exit 1
+        }
+    done
+    [[ -f "$toolchain_root/THIRD-PARTY-LICENSES.txt" ]] || {
+        echo "Error: payload ${platform} is missing its third-party license bundle" >&2
+        exit 1
+    }
 
-    # The upstream archive currently contains only a short license pointer in
-    # include/llvm/Support. Keep the complete LLVM license with the toolchain
-    # that GoReleaser places in LLGo release archives.
-    install -m 0644 "${LLVM_LICENSE}" ".sysroot/${os}/${arch}/crosscompile/clang/LICENSE-LLVM.txt"
+    # Preserve LLGo's root-level license contract in addition to the payload's
+    # complete per-component third-party license bundle.
+    install -m 0644 "${LLVM_LICENSE}" "$toolchain_root/LICENSE-LLVM.txt"
     
     echo "${platform} ESP Clang ready in .sysroot/${os}/${arch}/crosscompile/clang"
 }

@@ -80,10 +80,10 @@ jobs:
           docker run --rm "${GORELEASER_CROSS_IMAGE}" --version
           docker run \
             --rm \
-            -e GITHUB_TOKEN=${GITHUB_TOKEN} \
-            -e LLGO_LLVM_MAJOR=${LLGO_LLVM_MAJOR} \
+            -e "GITHUB_TOKEN=${GITHUB_TOKEN}" \
+            -e "LLGO_LLVM_MAJOR=${LLGO_LLVM_MAJOR}" \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $(pwd):/go/src/llgo \
+            -v "$PWD:/go/src/llgo" \
             -w /go/src/llgo \
             "${GORELEASER_CROSS_IMAGE}" \
             release --verbose --skip=publish,nfpm,snapcraft --snapshot --clean
@@ -164,14 +164,37 @@ jobs:
           name: llgo-${{ matrix.goos }}-${{ matrix.goarch }}
           path: .
 
+      - name: Download Checksums
+        uses: actions/download-artifact@v8
+        with:
+          name: llgo-checksums
+          path: .
+
       - name: Extract LLGO Archive
         run: |
+          set -euo pipefail
           echo "Looking for ${{ matrix.goos }}_${{ matrix.goarch }} archive..."
-          ARCHIVE=$(ls *.tar.gz | head -n1)
+          shopt -s nullglob
+          archives=(./*.tar.gz)
+          checksum_files=(./*.checksums.txt)
+          test "${#archives[@]}" -eq 1
+          test "${#checksum_files[@]}" -eq 1
+          ARCHIVE="${archives[0]}"
+          ARCHIVE_NAME="${ARCHIVE#./}"
+          CHECKSUMS="${checksum_files[0]}"
+          EXPECTED=$(awk -v archive="$ARCHIVE_NAME" '$2 == archive { print $1 }' "$CHECKSUMS")
+          ACTUAL=$(shasum -a 256 "$ARCHIVE" | awk '{ print $1 }')
+          test -n "$EXPECTED"
+          test "$ACTUAL" = "$EXPECTED"
           mkdir -p release-llgo
           tar -xzf "$ARCHIVE" -C release-llgo
           ls -la release-llgo/
-          echo "${{ github.workspace }}/release-llgo/bin/" >> $GITHUB_PATH
+          TOOLCHAIN=release-llgo/crosscompile/clang
+          test "$($TOOLCHAIN/bin/llvm-config --version | cut -d. -f1)" = 22
+          test "$($TOOLCHAIN/bin/clang -dumpversion | cut -d. -f1)" = 22
+          "$TOOLCHAIN/bin/ld.lld" --version
+          grep '^llvm_expected_version=22\.' "$TOOLCHAIN/LLGO-LLVM-MANIFEST.txt"
+          echo "${{ github.workspace }}/release-llgo/bin/" >> "$GITHUB_PATH"
 
       - name: Test Hello World
         uses: ./.github/actions/test-helloworld
@@ -203,10 +226,10 @@ jobs:
           docker run --rm "${GORELEASER_CROSS_IMAGE}" --version
           docker run \
             --rm \
-            -e GITHUB_TOKEN=${GITHUB_TOKEN} \
-            -e LLGO_LLVM_MAJOR=${LLGO_LLVM_MAJOR} \
+            -e "GITHUB_TOKEN=${GITHUB_TOKEN}" \
+            -e "LLGO_LLVM_MAJOR=${LLGO_LLVM_MAJOR}" \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v $(pwd):/go/src/llgo \
+            -v "$PWD:/go/src/llgo" \
             -w /go/src/llgo \
             "${GORELEASER_CROSS_IMAGE}" \
             release --clean --verbose --skip nfpm,snapcraft

@@ -25,36 +25,36 @@ jobs:
         # native toolchain profile, always with .go-version.
         include:
           - os: ubuntu-latest
-            llvm: 21
+            llvm: 22
           - os: macos-latest
-            llvm: 21
+            llvm: 22
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             windows_abi: msvc
             windows_arch: amd64
             host_go_arch: x64
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             windows_abi: mingw
             windows_arch: amd64
             host_go_arch: x64
           - os: windows-11-arm
-            llvm: 21
+            llvm: 22
             windows_abi: msvc
             windows_arch: arm64
             host_go_arch: x64
           - os: windows-11-arm
-            llvm: 21
+            llvm: 22
             windows_abi: mingw
             windows_arch: arm64
             host_go_arch: arm64
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             windows_abi: msvc
             windows_arch: "386"
             host_go_arch: x64
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             windows_abi: mingw
             windows_arch: "386"
             host_go_arch: x64
@@ -244,17 +244,13 @@ jobs:
       - name: Show test result
         run: cat result.md
 
-      - name: Install LLDB for integration tests
-        if: ${{ matrix.os == 'ubuntu-latest' }}
-        run: sudo apt-get install -y lldb-${{matrix.llvm}}
-
       - name: Install MinGW LLDB for integration tests
         # R12 qualifies debugger behavior for the new GNU architectures. Keep
         # R11 focused on their language/runtime and C interoperability gates.
         if: ${{ matrix.os == 'windows-2022' && matrix.windows_abi == 'mingw' && matrix.windows_arch == 'amd64' }}
         shell: msys2 {0}
         env:
-          MSYS2_LLDB_PACKAGE_VERSION: "21.1.8-3"
+          MSYS2_LLDB_PACKAGE_VERSION: "22.1.8-1"
           MSYS2_PYTHON_PACKAGE_VERSION: "3.14.6-2"
         run: |
           set -euo pipefail
@@ -282,22 +278,11 @@ jobs:
         if: ${{ matrix.windows_abi == 'msvc' }}
         shell: pwsh
         run: |
-          if ("${{ matrix.windows_arch }}" -ne "amd64") {
-            # Use the target-native debugger and Python runtime. The x64
-            # debugger cannot reliably inspect ARM64 register variables or
-            # cross the WoW64 exception dispatcher into a 32-bit source frame.
-            $env:PYTHONHOME = $env:LLGO_WINDOWS_LLDB_PYTHON_HOME
-            $env:PYTHONPATH = $env:LLGO_WINDOWS_LLDB_PYTHONPATH
-            $env:PYTHONUTF8 = "1"
-            $env:PYTHONIOENCODING = "utf-8"
-            $env:PATH = "$env:LLGO_WINDOWS_LLDB_PYTHON_HOME;$env:PATH"
-          } else {
-            # LLVM's official x64 release links python310.dll even though the
-            # demos embed Python 3.12. Keep the debugger runtime independent.
-            $env:PYTHONHOME = $env:LLGO_WINDOWS_LLDB_PYTHON_HOME
-            $env:PYTHONPATH = $env:LLGO_WINDOWS_LLDB_PYTHONPATH
-            $env:PATH = "$env:LLGO_WINDOWS_LLDB_PYTHON_HOME;$env:PATH"
-          }
+          $env:PYTHONHOME = $env:LLGO_WINDOWS_LLDB_PYTHON_HOME
+          $env:PYTHONPATH = $env:LLGO_WINDOWS_LLDB_PYTHONPATH
+          $env:PYTHONUTF8 = "1"
+          $env:PYTHONIOENCODING = "utf-8"
+          $env:PATH = "$env:LLGO_WINDOWS_LLDB_PYTHON_HOME;$env:PATH"
           Write-Host "Test lldb with llgo plugin on ${{matrix.os}} with LLVM ${{matrix.llvm}}"
           bash cmd/llgo/lldbtest/runtest.sh -v
           if ($LASTEXITCODE -ne 0) {
@@ -389,14 +374,14 @@ jobs:
         # runs take about 25 minutes each and would exceed 30 minutes combined.
         include:
           - os: ubuntu-latest
-            llvm: 21
+            llvm: 22
             go_version: "1.20-1.26"
             lane: compatibility
             shard_index: "0"
             shard_total: "1"
             check_symbols: true
           - os: ubuntu-latest
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
@@ -404,7 +389,7 @@ jobs:
             check_symbols: true
             std_buildmodes: true
           - os: ubuntu-latest
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "1"
@@ -412,14 +397,14 @@ jobs:
             check_symbols: true
             std_buildmodes: true
           - os: macos-latest
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
             shard_total: "1"
           # Each Windows ABI profile runs the latest complete set with -p=2.
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
@@ -428,7 +413,7 @@ jobs:
             windows_arch: amd64
             host_go_arch: x64
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
@@ -437,7 +422,7 @@ jobs:
             windows_arch: amd64
             host_go_arch: x64
           - os: windows-11-arm
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
@@ -446,7 +431,7 @@ jobs:
             windows_arch: arm64
             host_go_arch: x64
           - os: windows-11-arm
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
@@ -455,7 +440,7 @@ jobs:
             windows_arch: arm64
             host_go_arch: arm64
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
@@ -464,7 +449,7 @@ jobs:
             windows_arch: "386"
             host_go_arch: x64
           - os: windows-2022
-            llvm: 21
+            llvm: 22
             go_version: "1.27"
             lane: full
             shard_index: "0"
@@ -567,7 +552,7 @@ jobs:
         # Native Darwin coverage remains in the primary LLGo lanes and release
         # artifact smoke tests.
         os: [ubuntu-latest]
-        llvm: [21]
+        llvm: [22]
     runs-on: ${{matrix.os}}
     steps:
       - uses: actions/checkout@v7
@@ -617,7 +602,7 @@ jobs:
       - name: Install host dependencies
         uses: ./.github/actions/setup-deps
         with:
-          llvm-version: 21
+          llvm-version: 22
 
       - name: Set up Go for building llgo
         uses: ./.github/actions/setup-go
@@ -648,7 +633,7 @@ jobs:
       - name: Install dependencies
         uses: ./.github/actions/setup-deps
         with:
-          llvm-version: 21
+          llvm-version: 22
 
       - name: Set up Emscripten
         uses: emscripten-core/setup-emsdk@v15

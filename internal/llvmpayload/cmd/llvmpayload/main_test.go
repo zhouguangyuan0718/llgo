@@ -2,33 +2,51 @@ package main
 
 import (
 	"bytes"
+	"regexp"
 	"strings"
 	"testing"
 )
 
 func TestRun(t *testing.T) {
-	for _, args := range [][]string{nil, []string{"-major", "21"}} {
-		var stdout, stderr bytes.Buffer
-		if code := run(args, &stdout, &stderr); code != 0 {
-			t.Fatalf("run(%q) exit code = %d, stderr = %q", args, code, stderr.String())
-		}
-		for _, want := range []string{
-			"LLGO_LLVM_MAJOR=21\n",
-			"ESP_CLANG_LLVM_MAJOR=21\n",
-			"ESP_CLANG_VERSION=21.1.3_20260816\n",
-			"ESP_CLANG_BASE_URL=https://github.com/goplus/espressif-llvm-project-prebuilt/releases/download/21.1.3_20260816\n",
-			"ESP_CLANG_SHA256_DARWIN_AMD64=21159a4edb8948d83e1f73dfef394bca6941d0c4035da02f8c90ac59799893fa\n",
-			"ESP_CLANG_SHA256_DARWIN_ARM64=a8c46104501c38a8a7359ec24bc4e9d646f9fec2bdb2b122cbbee78e060400d1\n",
-			"ESP_CLANG_SHA256_LINUX_AMD64=582b787057c9e36e7d4db20aaed7bbba74c7ad0481489f034f09476703befbd5\n",
-			"ESP_CLANG_SHA256_LINUX_ARM64=77f49d832e5f309ecd6baaf169c62e3b064b27f9bee5aedddb6e66c981d56f44\n",
-		} {
-			if !strings.Contains(stdout.String(), want) {
-				t.Errorf("run(%q) output does not contain %q:\n%s", args, want, stdout.String())
+	tests := []struct {
+		name    string
+		args    []string
+		major   string
+		version string
+	}{
+		{name: "default", major: "22", version: "22.1.4_20260901"},
+		{name: "explicit LLVM 21", args: []string{"-major", "21"}, major: "21", version: "21.1.3_20260816"},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			var stdout, stderr bytes.Buffer
+			if code := run(test.args, &stdout, &stderr); code != 0 {
+				t.Fatalf("run(%q) exit code = %d, stderr = %q", test.args, code, stderr.String())
 			}
-		}
-		if stderr.Len() != 0 {
-			t.Errorf("run(%q) stderr = %q", args, stderr.String())
-		}
+			for _, want := range []string{
+				"LLGO_LLVM_MAJOR=" + test.major + "\n",
+				"ESP_CLANG_LLVM_MAJOR=" + test.major + "\n",
+				"ESP_CLANG_VERSION=" + test.version + "\n",
+				"ESP_CLANG_BASE_URL=https://github.com/goplus/espressif-llvm-project-prebuilt/releases/download/" + test.version + "\n",
+			} {
+				if !strings.Contains(stdout.String(), want) {
+					t.Errorf("run(%q) output does not contain %q:\n%s", test.args, want, stdout.String())
+				}
+			}
+			for _, key := range []string{
+				"ESP_CLANG_SHA256_DARWIN_AMD64",
+				"ESP_CLANG_SHA256_DARWIN_ARM64",
+				"ESP_CLANG_SHA256_LINUX_AMD64",
+				"ESP_CLANG_SHA256_LINUX_ARM64",
+			} {
+				if !regexp.MustCompile(`(?m)^` + key + `=[0-9a-f]{64}$`).MatchString(stdout.String()) {
+					t.Errorf("run(%q) output has no valid %s:\n%s", test.args, key, stdout.String())
+				}
+			}
+			if stderr.Len() != 0 {
+				t.Errorf("run(%q) stderr = %q", test.args, stderr.String())
+			}
+		})
 	}
 }
 

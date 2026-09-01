@@ -21,29 +21,39 @@ var needSkipDownload = false
 var llvmVersionPattern = regexp.MustCompile(`[0-9]+\.[0-9]+(?:\.[0-9]+)?`)
 
 func compilerVersionCacheKey(versionOutput string, payloadContract []byte) (string, error) {
+	cacheKey, _, err := compilerVersionIdentity(versionOutput, payloadContract)
+	return cacheKey, err
+}
+
+func compilerVersionIdentity(versionOutput string, payloadContract []byte) (cacheKey, version string, err error) {
 	versionLine := strings.TrimSpace(versionOutput)
 	if i := strings.IndexByte(versionLine, '\n'); i >= 0 {
 		versionLine = versionLine[:i]
 	}
-	version := llvmVersionPattern.FindString(versionLine)
+	version = llvmVersionPattern.FindString(versionLine)
 	if version == "" {
-		return "", fmt.Errorf("parse compiler version from %q", versionLine)
+		return "", "", fmt.Errorf("parse compiler version from %q", versionLine)
 	}
 	identity := append([]byte(versionLine+"\x00"), payloadContract...)
 	digest := sha256.Sum256(identity)
-	return fmt.Sprintf("llvm-%s-%x", version, digest[:6]), nil
+	return fmt.Sprintf("llvm-%s-%x", version, digest[:6]), version, nil
 }
 
 func compilerCacheKey(cc string) (string, error) {
+	cacheKey, _, err := compilerCacheIdentity(cc)
+	return cacheKey, err
+}
+
+func compilerCacheIdentity(cc string) (cacheKey, version string, err error) {
 	output, err := exec.Command(cc, "--version").CombinedOutput()
 	if err != nil {
-		return "", fmt.Errorf("query compiler %q version: %w: %s", cc, err, strings.TrimSpace(string(output)))
+		return "", "", fmt.Errorf("query compiler %q version: %w: %s", cc, err, strings.TrimSpace(string(output)))
 	}
 	payloadContract, err := os.ReadFile(filepath.Join(filepath.Dir(filepath.Dir(cc)), "LLGO-LLVM-MANIFEST.txt"))
 	if err != nil && !errors.Is(err, os.ErrNotExist) {
-		return "", fmt.Errorf("read compiler payload contract: %w", err)
+		return "", "", fmt.Errorf("read compiler payload contract: %w", err)
 	}
-	return compilerVersionCacheKey(string(output), payloadContract)
+	return compilerVersionIdentity(string(output), payloadContract)
 }
 
 func compiledLibraryCacheKey(compilerKey string, flagGroups ...[]string) string {
@@ -97,7 +107,7 @@ func getLibcCompileConfigByName(baseDir, libcName, target, mcpu, compilerKey str
 
 // getRTCompileConfigByName retrieves runtime library compilation configuration by name
 // Returns the actual libc output dir, compilation config and err
-func getRTCompileConfigByName(baseDir, rtName, target, compilerKey string) (outputDir string, cfg compile.CompileConfig, err error) {
+func getRTCompileConfigByName(baseDir, rtName, target, compilerKey, llvmVersion string) (outputDir string, cfg compile.CompileConfig, err error) {
 	if rtName == "" {
 		err = fmt.Errorf("rt name cannot be empty")
 		return
@@ -108,7 +118,7 @@ func getRTCompileConfigByName(baseDir, rtName, target, compilerKey string) (outp
 
 	switch rtName {
 	case "compiler-rt":
-		config, err = rtlib.GetCompilerRTConfig()
+		config, err = rtlib.GetCompilerRTConfigForLLVMVersion(llvmVersion)
 		if err != nil {
 			return
 		}

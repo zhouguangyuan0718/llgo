@@ -163,6 +163,14 @@ func TestLLGoRuntimeDir(t *testing.T) {
 	})
 }
 
+func TestLLGoCacheDirOverride(t *testing.T) {
+	dir := t.TempDir()
+	t.Setenv("LLGO_CACHE_DIR", dir)
+	if got := LLGoCacheDir(); got != dir {
+		t.Fatalf("LLGoCacheDir() = %q, want %q", got, dir)
+	}
+}
+
 func TestLLGoROOT(t *testing.T) {
 	// Test with valid LLGO_ROOT environment variable
 	t.Run("with valid LLGO_ROOT env", func(t *testing.T) {

@@ -1,7 +1,7 @@
-//go:build !byollvm && darwin && amd64 && llvm19
+//go:build !byollvm && darwin && amd64 && !llvm14 && !llvm15 && !llvm16 && !llvm17 && !llvm18 && !llvm19 && !llvm20 && !llvm21
 
 /*
- * Copyright (c) 2024 The XGo Authors (xgo.dev). All rights reserved.
+ * Copyright (c) 2026 The XGo Authors (xgo.dev). All rights reserved.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -18,4 +18,4 @@
 
 package llvm
 
-const ldLLVMConfigBin = "/usr/local/opt/llvm@19/bin/llvm-config"
+const ldLLVMConfigBin = "/usr/local/opt/llvm@22/bin/llvm-config"

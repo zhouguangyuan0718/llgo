@@ -107,10 +107,13 @@ func withPlatformSpecifiedFiles(baseDir, target string, files []string) []string
 }
 
 func GetCompilerRTConfig() (compile.LibConfig, error) {
-	return compilerRTConfigForLLVMVersion(gllvm.Version)
+	return GetCompilerRTConfigForLLVMVersion(gllvm.Version)
 }
 
-func compilerRTConfigForLLVMVersion(llvmVersion string) (compile.LibConfig, error) {
+// GetCompilerRTConfigForLLVMVersion selects compiler-rt for the Clang that
+// will compile it. This can differ from LLGo's linked LLVM when a host uses a
+// revision-locked external cross toolchain.
+func GetCompilerRTConfigForLLVMVersion(llvmVersion string) (compile.LibConfig, error) {
 	payload, err := llvmpayload.ForLLVMVersion(llvmVersion)
 	if err != nil {
 		return compile.LibConfig{}, err

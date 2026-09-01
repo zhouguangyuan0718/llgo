@@ -41,8 +41,8 @@ func TestESPClangHostDownload(t *testing.T) {
 	}{
 		{"darwin", "arm64", "aarch64-apple-darwin", payload.Version()},
 		{"linux", "amd64", "x86_64-linux-gnu", payload.Version()},
-		{"windows", "amd64", "x86_64-w64-mingw32", "21.1.3_20260408"},
-		{"windows", "arm64", "x86_64-w64-mingw32", "21.1.3_20260408"},
+		{"windows", "amd64", "x86_64-w64-mingw32", payload.Version()},
+		{"windows", "arm64", "x86_64-w64-mingw32", payload.Version()},
 	}
 	for _, test := range tests {
 		platform := getESPClangPlatform(test.goos, test.goarch)
@@ -79,7 +79,7 @@ func TestESPClangArtifactError(t *testing.T) {
 		resolveESPClangArtifact = originalResolver
 	})
 
-	if _, err := getESPClangRoot(true); !errors.Is(err, want) {
+	if _, _, err := getESPClangRoot(true); !errors.Is(err, want) {
 		t.Fatalf("getESPClangRoot error = %v, want %v", err, want)
 	}
 }

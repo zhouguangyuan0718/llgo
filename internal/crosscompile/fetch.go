@@ -90,10 +90,10 @@ func checkDownloadAndExtractESPClang(artifact llvmpayload.Artifact, dir string) 
 	return nil
 }
 
-// installESPClangLicense places the complete LLVM license next to an ESP Clang
-// toolchain. The upstream archive currently contains only a short license
-// pointer under include/llvm/Support; LLGo source trees and release archives
-// carry the complete Apache-2.0 WITH LLVM-exception text under LICENSES.
+// installESPClangLicense places LLGo's canonical LLVM license next to an ESP
+// Clang toolchain. LLVM 22 payloads also preserve their component license
+// bundle, while this root-level file keeps the existing LLGo installation
+// contract stable for older payloads and consumers.
 func installESPClangLicense(clangDir string) error {
 	license, err := os.ReadFile(filepath.Join(env.LLGoROOT(), "LICENSES", espClangLicenseFile))
 	if err != nil {

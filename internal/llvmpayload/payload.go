@@ -10,14 +10,14 @@ import (
 )
 
 const (
-	releaseBaseURL           = "https://github.com/goplus/espressif-llvm-project-prebuilt/releases/download"
-	espLLVM21WindowsBaseURL  = "https://github.com/espressif/llvm-project/releases/download/esp-21.1.3_20260408"
-	espLLVM21WindowsVersion  = "21.1.3_20260408"
-	espLLVM21WindowsPlatform = "x86_64-w64-mingw32"
+	releaseBaseURL          = "https://github.com/goplus/espressif-llvm-project-prebuilt/releases/download"
+	espLLVM21WindowsBaseURL = "https://github.com/espressif/llvm-project/releases/download/esp-21.1.3_20260408"
+	espLLVM21WindowsVersion = "21.1.3_20260408"
+	espLLVMWindowsPlatform  = "x86_64-w64-mingw32"
 )
 
 // DefaultMajor is the LLVM payload bundled into LLGo release archives.
-const DefaultMajor = 21
+const DefaultMajor = 22
 
 var llvmMajorPattern = regexp.MustCompile(`(?:^|[^0-9])([0-9]+)\.[0-9]+`)
 
@@ -30,20 +30,32 @@ type manifest struct {
 }
 
 type artifactOverride struct {
-	version string
-	baseURL string
-	sha256  string
+	llvmMajor int
+	version   string
+	baseURL   string
+	sha256    string
 }
 
 // Artifact identifies one host-specific LLVM payload archive.
 type Artifact struct {
-	Platform string
-	Version  string
-	URL      string
-	SHA256   string
+	Platform  string
+	LLVMMajor int
+	Version   string
+	URL       string
+	SHA256    string
 }
 
 var manifests = map[int]manifest{
+	22: {
+		llvmMajor:         22,
+		version:           "22.1.4_20260901",
+		compilerRTVersion: "xtensa_release_22.1.4_20260901",
+		sha256: map[string]string{
+			// The remaining POSIX checksums are added only after the exact-head
+			// prebuilt CI artifacts have completed and passed archive validation.
+			"aarch64-apple-darwin": "efd598308860cffe5188b1f361b52fd02360ad32cbfe2afdbd792331bfcb2747",
+		},
+	},
 	21: {
 		llvmMajor:         21,
 		version:           "21.1.3_20260816",
@@ -55,17 +67,18 @@ var manifests = map[int]manifest{
 			"x86_64-linux-gnu":     "582b787057c9e36e7d4db20aaed7bbba74c7ad0481489f034f09476703befbd5",
 		},
 		artifactOverrides: map[string]artifactOverride{
-			espLLVM21WindowsPlatform: {
-				version: espLLVM21WindowsVersion,
-				baseURL: espLLVM21WindowsBaseURL,
-				sha256:  "415566ace6f47a9abc302b4ba79776d27668fd3f4e9c0d26861ec4f970323618",
+			espLLVMWindowsPlatform: {
+				llvmMajor: 21,
+				version:   espLLVM21WindowsVersion,
+				baseURL:   espLLVM21WindowsBaseURL,
+				sha256:    "415566ace6f47a9abc302b4ba79776d27668fd3f4e9c0d26861ec4f970323618",
 			},
 		},
 	},
 }
 
 // ForLLVMVersion returns the payload compatible with an in-process LLVM
-// version such as "21.1.8".
+// version such as "22.1.8".
 func ForLLVMVersion(version string) (Manifest, error) {
 	match := llvmMajorPattern.FindStringSubmatch(version)
 	if len(match) != 2 {
@@ -120,10 +133,11 @@ func (m Manifest) Artifact(platform string) (Artifact, error) {
 	if override, ok := m.payload.artifactOverrides[platform]; ok {
 		filename := fmt.Sprintf("clang-esp-%s-%s.tar.xz", override.version, platform)
 		return Artifact{
-			Platform: platform,
-			Version:  override.version,
-			URL:      override.baseURL + "/" + filename,
-			SHA256:   override.sha256,
+			Platform:  platform,
+			LLVMMajor: override.llvmMajor,
+			Version:   override.version,
+			URL:       override.baseURL + "/" + filename,
+			SHA256:    override.sha256,
 		}, nil
 	}
 	checksum, ok := m.payload.sha256[platform]
@@ -132,10 +146,11 @@ func (m Manifest) Artifact(platform string) (Artifact, error) {
 	}
 	filename := fmt.Sprintf("clang-esp-%s-%s.tar.xz", m.Version(), platform)
 	return Artifact{
-		Platform: platform,
-		Version:  m.Version(),
-		URL:      m.BaseURL() + "/" + filename,
-		SHA256:   checksum,
+		Platform:  platform,
+		LLVMMajor: m.LLVMMajor(),
+		Version:   m.Version(),
+		URL:       m.BaseURL() + "/" + filename,
+		SHA256:    checksum,
 	}, nil
 }
 
@@ -153,7 +168,7 @@ func PlatformSuffix(goos, goarch string) (string, bool) {
 	case "windows/amd64", "windows/arm64":
 		// Espressif publishes an x86-64 Windows host toolchain. Windows on
 		// ARM64 runs it through the system's x64 emulation layer.
-		return espLLVM21WindowsPlatform, true
+		return espLLVMWindowsPlatform, true
 	default:
 		return "", false
 	}

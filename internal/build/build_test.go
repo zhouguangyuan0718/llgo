@@ -144,6 +144,22 @@ func TestValidateLLVMToolchain(t *testing.T) {
 	if err := validateLLVMToolchain(crosscompile.Export{ClangRoot: root}); err != nil {
 		t.Fatalf("matching ClangRoot rejected: %v", err)
 	}
+
+	for _, name := range []string{"llvm-config", "clang", "ld.lld"} {
+		tool := filepath.Join(binDir, name)
+		contents := "#!/bin/sh\nprintf '%s\\n' 'LLVM 21.1.3'\n"
+		if err := os.WriteFile(tool, []byte(contents), 0o755); err != nil {
+			t.Fatal(err)
+		}
+	}
+	if err := validateLLVMToolchain(crosscompile.Export{
+		ClangRoot: root, ExternalLLVMMajor: 21,
+	}); err == nil || !strings.Contains(err.Error(), "version-specific LLVM IR") {
+		t.Fatalf("cross-major external LLVM payload error = %v", err)
+	}
+	if err := validateLLVMToolchain(crosscompile.Export{ClangRoot: root}); err == nil {
+		t.Fatal("uncontracted external LLVM major mismatch accepted")
+	}
 }
 
 func TestResolveBuildConfigDefaultsAndValidation(t *testing.T) {

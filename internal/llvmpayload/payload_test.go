@@ -30,6 +30,9 @@ func testManifest(t *testing.T, llvmVersion, payloadVersion, compilerRTVersion s
 		if artifact.Platform != platform {
 			t.Errorf("artifact platform = %q, want %q", artifact.Platform, platform)
 		}
+		if artifact.LLVMMajor != wantMajor {
+			t.Errorf("artifact LLVM major = %d for %q, want %d", artifact.LLVMMajor, platform, wantMajor)
+		}
 		if !strings.HasSuffix(artifact.URL, "clang-esp-"+artifact.Version+"-"+platform+".tar.xz") {
 			t.Errorf("artifact URL = %q", artifact.URL)
 		}
@@ -43,12 +46,9 @@ func testManifest(t *testing.T, llvmVersion, payloadVersion, compilerRTVersion s
 func TestLLVM21Manifest(t *testing.T) {
 	testManifest(t, "LLVM 21.1.8", "21.1.3_20260816", "xtensa_release_21.1.3_20260408", 21)
 
-	manifest, err := Default()
+	manifest, err := ForMajor(21)
 	if err != nil {
 		t.Fatal(err)
-	}
-	if manifest.LLVMMajor() != 21 || manifest.Version() != "21.1.3_20260816" {
-		t.Fatalf("default manifest identity = LLVM %d %s", manifest.LLVMMajor(), manifest.Version())
 	}
 	windows, err := manifest.Artifact("x86_64-w64-mingw32")
 	if err != nil {
@@ -62,6 +62,16 @@ func TestLLVM21Manifest(t *testing.T) {
 	}
 	if windows.SHA256 != "415566ace6f47a9abc302b4ba79776d27668fd3f4e9c0d26861ec4f970323618" {
 		t.Fatalf("Windows artifact checksum = %q", windows.SHA256)
+	}
+}
+
+func TestDefaultManifest(t *testing.T) {
+	manifest, err := Default()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if manifest.LLVMMajor() != 22 || manifest.Version() != "22.1.4_20260901" {
+		t.Fatalf("default manifest identity = LLVM %d %s", manifest.LLVMMajor(), manifest.Version())
 	}
 }
 
