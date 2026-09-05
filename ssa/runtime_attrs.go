@@ -100,3 +100,12 @@ func (p Program) addRuntimeAttributes(fn llvm.Value, name string) {
 		add(-1, "memory", runtimeMemoryRead)
 	}
 }
+
+func addNonNegativeReturnRange(ctx llvm.Context, fn llvm.Value, bits int) {
+	if bits != 32 && bits != 64 {
+		panic("ssa: unsupported runtime integer width")
+	}
+	attr := ctx.CreateConstantRangeAttribute(llvm.AttributeKindID("range"), bits,
+		[]uint64{0}, []uint64{uint64(1) << (bits - 1)})
+	fn.AddAttributeAtIndex(0, attr)
+}
