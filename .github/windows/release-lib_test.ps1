@@ -82,6 +82,13 @@ try {
       Expect-Failure {
         Assert-ReleasePE -ReadObj $ReadObj -Path "$stage/forbidden.exe" -GoArch $goArch -Profile 'msvc'
       } 'runtime outside'
+      if ($dll -eq 'libc++.dll') {
+        $null = Assert-ReleasePE -ReadObj $ReadObj -Path "$stage/forbidden.exe" -GoArch $goArch -Profile 'mingw'
+      } else {
+        Expect-Failure {
+          Assert-ReleasePE -ReadObj $ReadObj -Path "$stage/forbidden.exe" -GoArch $goArch -Profile 'mingw'
+        } 'runtime outside'
+      }
     }
     Write-Host "Passed $goArch DLL closure, relocation, missing dependency, architecture, and ABI checks"
   }

@@ -31,22 +31,20 @@ $llvmRoot = if ($Profile -eq 'mingw') {
 if ($Profile -eq 'msvc' -and $GoArch -eq 'arm64') {
   # The ordinary MSVC CI profile builds an x64 compiler for all targets.
   # A release labelled arm64 must link the actual ARM64 LLVM libraries.
-  $sdkParent = Join-Path $env:RUNNER_TOOL_CACHE "llgo-release-llvm/$llvmVersion/arm64"
+  $sdkParent = Join-Path $env:RUNNER_TEMP "llgo-release-llvm/$llvmVersion/arm64"
   $sdkName = "clang+llvm-$llvmVersion-aarch64-pc-windows-msvc"
   $llvmRoot = Join-Path $sdkParent $sdkName
-  if (-not (Test-Path (Join-Path $llvmRoot '.complete'))) {
-    if (Test-Path $sdkParent) { Remove-Item -LiteralPath $sdkParent -Recurse -Force }
-    $asset = $sdkName.Replace('+', '%2B') + '.tar.xz'
-    Expand-ReleaseXz `
-      -URL "https://github.com/llvm/llvm-project/releases/download/llvmorg-$llvmVersion/$asset" `
-      -SHA256 'de718c58ebbc5f61d58c17b90457fcf42983bc2c4a4aba3e010d108713bfd7f1' `
-      -Destination $sdkParent `
-      -Entries @("$sdkName/include/*", "$sdkName/lib/*", "$sdkName/bin/llvm-config.exe", "$sdkName/bin/*.dll")
-    if (-not (Test-Path (Join-Path $llvmRoot 'include/llvm-c/Core.h')) -or
-        -not (Test-Path (Join-Path $llvmRoot 'lib/LLVMCore.lib'))) {
-      throw 'The ARM64 LLVM development SDK is incomplete'
-    }
-    New-Item -ItemType File (Join-Path $llvmRoot '.complete') | Out-Null
+  if (Test-Path $sdkParent) { Remove-Item -LiteralPath $sdkParent -Recurse -Force }
+  $asset = $sdkName.Replace('+', '%2B') + '.tar.xz'
+  Expand-ReleaseXz `
+    -URL "https://github.com/llvm/llvm-project/releases/download/llvmorg-$llvmVersion/$asset" `
+    -SHA256 'de718c58ebbc5f61d58c17b90457fcf42983bc2c4a4aba3e010d108713bfd7f1' `
+    -CacheDirectory (Join-Path $env:RUNNER_TOOL_CACHE 'llgo-release-downloads/llvm-arm64') `
+    -Destination $sdkParent `
+    -Entries @("$sdkName/include/*", "$sdkName/lib/*", "$sdkName/bin/llvm-config.exe", "$sdkName/bin/*.dll")
+  if (-not (Test-Path (Join-Path $llvmRoot 'include/llvm-c/Core.h')) -or
+      -not (Test-Path (Join-Path $llvmRoot 'lib/LLVMCore.lib'))) {
+    throw 'The ARM64 LLVM development SDK is incomplete'
   }
 }
 
@@ -80,7 +78,7 @@ if ($Profile -eq 'msvc') {
     }
     '-l' + [IO.Path]::GetFileNameWithoutExtension($_)
   }
-  $env:CGO_LDFLAGS = '-L"' + (Join-Path $llvmRoot 'lib').Replace('\', '/') + '" ' + ($libraryFlags -join ' ')
+  $env:CGO_LDFLAGS = Get-ReleaseMSVCLinkFlags -LibraryDirectory (Join-Path $llvmRoot 'lib') -LibraryFlags $libraryFlags
 } else {
   $env:CGO_LDFLAGS = (Invoke-ReleaseCapture $llvmConfig @('--ldflags', '--libs', 'all', '--system-libs')).Trim().Replace('\', '/').Replace("`n", ' ')
 }
@@ -113,6 +111,7 @@ try {
   Expand-ReleaseXz `
     -URL "https://github.com/goplus/espressif-llvm-project-prebuilt/releases/download/$espVersion/$espAsset" `
     -SHA256 '3d32533daec8be08e608496eff817798eb7d3c25f07a02de1f1c94c0a0bbb8b3' `
+    -CacheDirectory (Join-Path $env:RUNNER_TOOL_CACHE 'llgo-release-downloads/esp') `
     -Destination $espParent
   $crosscompile = Join-Path $stage 'crosscompile'
   New-Item -ItemType Directory $crosscompile | Out-Null

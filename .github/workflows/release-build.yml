@@ -9,6 +9,9 @@ on:
   pull_request:
     branches: ["**"]
 
+permissions:
+  contents: read
+
 concurrency:
   group: ${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
   cancel-in-progress: true
@@ -179,12 +182,18 @@ jobs:
           # MSVC uses the x64 bootstrap Clang, with architecture-matched LLVM
           # libraries and SDK for the resulting llgo.exe. MinGW builds natively.
           architecture: ${{ matrix.abi == 'mingw' && matrix.goarch == 'arm64' && 'arm64' || 'x64' }}
-      - name: Cache ARM64 MSVC release SDK
+      - name: Cache ARM64 MSVC release SDK archive
         if: matrix.abi == 'msvc' && matrix.goarch == 'arm64'
         uses: actions/cache@v6
         with:
-          path: ${{ runner.tool_cache }}/llgo-release-llvm/22.1.8/arm64
-          key: llgo-release-llvm-22.1.8-arm64-de718c58ebbc5f61d58c17b90457fcf42983bc2c4a4aba3e010d108713bfd7f1
+          path: ${{ runner.tool_cache }}/llgo-release-downloads/llvm-arm64
+          key: llgo-release-llvm-archive-v1-de718c58ebbc5f61d58c17b90457fcf42983bc2c4a4aba3e010d108713bfd7f1
+      - name: Cache ESP release archive
+        uses: actions/cache@v6
+        with:
+          path: ${{ runner.tool_cache }}/llgo-release-downloads/esp
+          key: llgo-release-esp-archive-v1-3d32533daec8be08e608496eff817798eb7d3c25f07a02de1f1c94c0a0bbb8b3
+          enableCrossOsArchive: true
       - name: Download release metadata
         uses: actions/download-artifact@v8
         with:
@@ -192,7 +201,9 @@ jobs:
           path: .windows-dist
       - name: Test Windows packaging checks
         shell: pwsh
-        run: ./.github/windows/release-lib_test.ps1
+        run: |
+          ./.github/windows/release-lib_test.ps1
+          ./.github/windows/release-build_test.ps1
       - name: Build integrated Windows archive
         shell: pwsh
         run: >-

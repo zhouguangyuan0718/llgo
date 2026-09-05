@@ -69,12 +69,15 @@ function Copy-ReleaseDLLs {
         }
       }
       if ($source) {
-        $null = Assert-ReleasePE -ReadObj $ReadObj -Path $source -GoArch $GoArch -Profile $Profile
         Copy-Item -LiteralPath $source -Destination $local
+        # Validate the packaged copy when it is dequeued, including its imports.
         $queue.Enqueue($local)
       } elseif (-not (Test-Path -LiteralPath (Join-Path $SystemDirectory $dll))) {
         throw "$path imports $dll, but it is absent from the release and selected LLVM profile"
       }
+      # System32 is the OS dependency boundary, not a strict DLL allowlist.
+      # A runner-specific DLL installed there can mask a missing redistributable;
+      # the standalone test on a fresh runner checks that boundary independently.
     }
   }
 }
@@ -94,24 +97,57 @@ function Invoke-ReleaseCapture {
   return $output
 }
 
+function Get-ReleaseMSVCLinkFlags {
+  param([string]$LibraryDirectory, [string[]]$LibraryFlags = @())
+
+  # cmd/go only recognizes a quote at the start of an argument. -L"path"
+  # preserves literal quotes and breaks the generated //go:cgo_ldflag pragma.
+  $path = $LibraryDirectory.Replace('\', '/')
+  if ($path -match '["\r\n]') { throw "Invalid LLVM library directory: $path" }
+  return (@('"-L' + $path + '"') + $LibraryFlags) -join ' '
+}
+
+function Get-ReleaseArchive {
+  param([string]$URL, [string]$SHA256, [string]$CacheDirectory)
+
+  if ($SHA256 -notmatch '^[0-9a-fA-F]{64}$') { throw 'Invalid release SHA-256' }
+  New-Item -ItemType Directory -Force $CacheDirectory | Out-Null
+  $archive = Join-Path $CacheDirectory "$SHA256.tar.xz"
+  if (-not (Test-Path -LiteralPath $archive)) {
+    $partial = "$archive.$([Guid]::NewGuid()).partial"
+    try {
+      & curl.exe --fail --location --retry 5 --retry-all-errors --output $partial $URL
+      if ($LASTEXITCODE -ne 0) { throw "Downloading $URL failed" }
+      $actual = (Get-FileHash -Algorithm SHA256 $partial).Hash
+      if ($actual -ne $SHA256) { throw "SHA-256 for $URL is $actual, expected $SHA256" }
+      Move-Item -LiteralPath $partial -Destination $archive -Force
+    } finally {
+      if (Test-Path -LiteralPath $partial) { Remove-Item -LiteralPath $partial }
+    }
+  }
+  # Restored caches are untrusted. Verify the pinned archive on every use and
+  # always extract it afresh; neither extracted files nor markers are cached.
+  $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash
+  if ($actual -ne $SHA256) { throw "SHA-256 for $URL is $actual, expected $SHA256" }
+  return $archive
+}
+
 function Expand-ReleaseXz {
-  param([string]$URL, [string]$SHA256, [string]$Destination, [string[]]$Entries = @())
+  param(
+    [string]$URL, [string]$SHA256, [string]$Destination,
+    [string]$CacheDirectory, [string[]]$Entries = @()
+  )
 
   $temporary = Join-Path $env:RUNNER_TEMP ('llgo-release-download-' + [Guid]::NewGuid())
   New-Item -ItemType Directory -Force $temporary, $Destination | Out-Null
   try {
-    $archive = Join-Path $temporary 'payload.tar.xz'
-    & curl.exe --fail --location --retry 5 --retry-all-errors --output $archive $URL
-    if ($LASTEXITCODE -ne 0) { throw "Downloading $URL failed" }
-    $actual = (Get-FileHash -Algorithm SHA256 $archive).Hash
-    if ($actual -ne $SHA256) { throw "SHA-256 for $URL is $actual, expected $SHA256" }
+    $archive = Get-ReleaseArchive -URL $URL -SHA256 $SHA256 -CacheDirectory $CacheDirectory
     # Use 7-Zip for xz: the Windows ARM64 runner's bsdtar cannot extract all
     # upstream sparse xz archives. tar.gz release archives use bsdtar normally.
     $sevenZip = Join-Path $env:ProgramFiles '7-Zip/7z.exe'
     & $sevenZip x -y "-o$temporary" $archive | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'Decompressing the release payload failed' }
-    Remove-Item -LiteralPath $archive
-    & $sevenZip x -y "-o$Destination" (Join-Path $temporary 'payload.tar') @Entries | Out-Host
+    & $sevenZip x -y "-o$Destination" (Join-Path $temporary "$SHA256.tar") @Entries | Out-Host
     if ($LASTEXITCODE -ne 0) { throw 'Extracting the release payload failed' }
   } finally {
     Remove-Item -LiteralPath $temporary -Recurse -Force
